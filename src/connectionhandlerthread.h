@@ -1,5 +1,5 @@
-#ifndef CONNECTIONHANDLERTHREAD_H_
-#define CONNECTIONHANDLERTHREAD_H_
+#ifndef SRC_CONNECTIONHANDLERTHREAD_H_
+#define SRC_CONNECTIONHANDLERTHREAD_H_
 // Copyright 2022 RakuJa
 #include <QThread>
 #include <QTcpSocket>
@@ -24,4 +24,4 @@ class ConnectionHandlerThread : public QThread {
     qintptr socketDescriptor;
 };
 
-#endif  // CONNECTIONHANDLERTHREAD_H_
+#endif  // SRC_CONNECTIONHANDLERTHREAD_H_

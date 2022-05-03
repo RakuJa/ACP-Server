@@ -1,5 +1,5 @@
 // Copyright 2022 RakuJa
-#include "connectionhandlerthread.h"
+#include "src/connectionhandlerthread.h"
 
 ConnectionHandlerThread::ConnectionHandlerThread(
         qintptr ID, QObject *parent) : QThread(parent) {

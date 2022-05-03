@@ -1,5 +1,5 @@
 // Copyright 2022 RakuJa
-#include "tcpserver.h"
+#include "src/tcpserver.h"
 
 TcpServer::TcpServer(
         QObject *parent,
