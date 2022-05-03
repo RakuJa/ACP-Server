@@ -1,5 +1,5 @@
-#ifndef TCPSERVER_H_
-#define TCPSERVER_H_
+#ifndef SRC_TCPSERVER_H_
+#define SRC_TCPSERVER_H_
 
 #include <QObject>
 #include <QTcpSocket>
@@ -7,7 +7,7 @@
 #include <QDebug>
 
 // Copyright 2022 RakuJa
-#include <connectionhandlerthread.h>
+#include <src/connectionhandlerthread.h>
 
 
 class TcpServer : public QTcpServer {
@@ -32,4 +32,4 @@ class TcpServer : public QTcpServer {
     int serverPort;
 };
 
-#endif  // TCPSERVER_H_
+#endif  // SRC_TCPSERVER_H_
