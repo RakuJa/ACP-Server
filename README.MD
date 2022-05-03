@@ -21,6 +21,7 @@ This software is tested on Ubuntu 18.04
 TODO: update it
 
 ## Service installation and startup 🏁
+When a Release will be published you will find the executable there, once downloaded execute the following commands:
 ```bash
 chmod +x
 ./ACP-Server
@@ -30,7 +31,7 @@ chmod +x
 
 To develop this project you will need to configure a proper enviroment.
 
-* download the project from the repository:
+download the project from the repository:
 ```bash
 git clone 'https://github.com/RakuJa/ACP-Server'
 ```
@@ -40,19 +41,23 @@ Download QT dependencies
 
 #### Optional
 QT Documentation 
-
+```bash
 sudo apt install qt5-doc qt5-doc-html qtbase5-doc-html qtbase5-examples
+```
 
 QtCreator as IDE:
- 
+```bash 
 sudo apt install qtcreator
+```
 
 #### Mandatory:
-
+```bash
 sudo apt install build-essential
+```
 
+```bash
 sudo apt install qt5-default
-
+```
 
 ## CI and Tests 🤖
 
