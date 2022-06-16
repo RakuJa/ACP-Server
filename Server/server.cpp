@@ -78,12 +78,6 @@ int main(int count, char *strings[])
 	int server;
 	int portnum;
 
-	if(!isRoot())
-	{
-		printf("must be run with admin permission \n");
-		exit(0);
-	}
-
 	if ( count != 2 )
 	{
 		printf("Missing arguments in the execution, port number is required \n");
