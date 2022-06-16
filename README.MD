@@ -86,29 +86,18 @@ git clone 'https://github.com/RakuJa/ACP-Server'
 
 ### Instructions for Ubuntu 18.04
 
-Download QT dependencies 
+#### Create Certs
 
-#### Optional
+#### Server
+g++ -Wall -o server server.cpp -L/usr/local -lssl -lcrypto
+sudo ./server || Ex: sudo ./server 6000
 
-QT Documentation 
-```bash
-sudo apt install qt5-doc qt5-doc-html qtbase5-doc-html qtbase5-examples
-```
+#### Client
+g++ -Wall -o client client.cpp -L/usr/local -lssl -lcrypto
+./client   || ./client 192.168.43.54 6000
 
-QtCreator as IDE:
-```bash 
-sudo apt install qtcreator
-```
-
-#### Mandatory:
-
-```bash
-sudo apt install build-essential
-```
-
-```bash
-sudo apt install qt5-default
-```
+#### Monitor
+ssldump -i wlan0 port 6000
 
 **Install OpenSLL!**
 
