@@ -21,7 +21,7 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	
 	// Nonce(c) generation
 	unsigned char* nonce_buf = (unsigned char*)malloc(NONCE_LEN);
-	if (nonce_buf == NULL || RandomGenerator(nonce_buf, NONCE_LEN) == -1) {
+	if (nonce_buf == NULL || RandomGenerator(nonce_buf, NONCE_LEN) == FAIL) {
 		std::cout<<"Could not generate nonce(c) \n";
 		CloseAfterFirstPacketFailure(sd, nonce_buf);
 	}
@@ -30,11 +30,11 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	do {
 		printf("Please insert a valid username (only alphanumeric character and length < %d : \n", USERNAME_MAX_LENGTH);
 		std::cin>>username;
-	} while (std::cin.fail() || parse_string(username) != 1);
+	} while (std::cin.fail() || parse_string(username) != FAIL);
 	username.resize(USERNAME_MAX_LENGTH); // add padding to standardize packet size
 
 	// Send first packet, nonce(c) and username
-	if (SendMessage(sd, username.c_str(), USERNAME_MAX_LENGTH) == -1 || SendMessage(sd, nonce_buf, NONCE_LEN) == -1) {
+	if (SendMessage(sd, username.c_str(), USERNAME_MAX_LENGTH) == FAIL || SendMessage(sd, nonce_buf, NONCE_LEN) == FAIL) {
 		std::cout<<"Error sending username and nonce(c) \n";
 		CloseAfterFirstPacketFailure(sd, nonce_buf);
 	}
@@ -59,7 +59,7 @@ int OpenConnection(const char *hostname, int port) {
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = *(long*)(host->h_addr);
 
-	if ( connect(sd, (struct sockaddr*)&addr, sizeof(addr)) == -1 )
+	if ( connect(sd, (struct sockaddr*)&addr, sizeof(addr)) == FAIL )
 	{
 		close(sd);
 		perror(hostname);

@@ -15,6 +15,7 @@
 #include <netdb.h>
 #include "../lib/header/utils.h"
 #include "../lib/header/hash.h"
+#include "../lib/header/certificate.h"
 
 
 int OpenListener(int port)
@@ -31,13 +32,15 @@ int OpenListener(int port)
 
 	if ( bind(sd, (struct sockaddr*)&addr, sizeof(addr)) != 0 )
 	{
-		perror("PORT BINDING ERROR");
+		std::cerr<<"PORT BINDING ERROR";
+		close(sd);
 		abort();
 	}
 
 	if ( listen(sd, 10) != 0 )
 	{
-		perror("LISTENING PORT CONFIGURATION PROBLEM");
+		std::cerr<<"LISTENING PORT CONFIGURATION PROBLEM";
+		close(sd);
 		abort();
 	}
 	return sd;
@@ -58,8 +61,6 @@ int isRoot()
 
 unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	unsigned char* username = ReadMessage(sd, USERNAME_MAX_LENGTH);
-
-	//username[USERNAME_MAX_LENGTH-1] = '\0';
 
 	std::string sName (reinterpret_cast<char*>(username), USERNAME_MAX_LENGTH);
 	sName = RemoveCharacter(sName, ' ');
