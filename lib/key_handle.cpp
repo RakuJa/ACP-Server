@@ -93,7 +93,7 @@ EVP_PKEY* GenerateDiffieHellmanPrivateAndPublicPair() {
  * @param publicKey publicKey Pointer to EVP_PKEY that will be overwritten with the value extracted from myPPKey
  * @return unsigned* unsigned char* value of the extracted public key
  */
-unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, EVP_PKEY* publicKey) {
+unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, EVP_PKEY* publicKey, uint32_t& publicKeyLength) {
 
     // Clean and initiate variables
     publicKey = EVP_PKEY_new();
@@ -118,6 +118,8 @@ unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, EVP_PKE
     publicKey = PEM_read_PUBKEY(publicKeyPEM, NULL, NULL, NULL);
 
     fclose(publicKeyPEM);
+
+    publicKeyLength = *bufferLength;
     
     return result;
 

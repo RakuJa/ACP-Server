@@ -13,10 +13,10 @@
 
 #define FAIL    -1
 #define BUFFER  1024
-#define NONCE_LEN 128
+#define NONCE_LEN 16
 #define HANDSHAKE_ERROR "0"
 #define HANDSHAKE_ACK "1"
-#define DH_KEY_LENGTH 128
+#define DH_KEY_LENGTH 16
 #define USERNAME_MAX_LENGTH 17
 #define SERVER_CERT_NAME "ServerCert.pem"
 
@@ -46,34 +46,31 @@ unsigned char* ReadMessage(int socket, int length) {
     unsigned char* msg = (unsigned char*)malloc(length);
 
     if (msg==NULL) {
+        std::cerr << "Failed to allocate memory to read message" << std::endl;
         return NULL;
     }
-    result = recv(socket, msg, length, 0);
-    if (result == FAIL) {
-        free(msg);
-        return msg;
-    }
-    while (result < length) {
-        result += recv(socket, msg, length,0);
-    }
+
+    do {
+        int tmp = recv(socket, msg, length, 0);
+        if (tmp == FAIL) {
+            free(msg);
+            return NULL;
+        }
+        result +=tmp;
+    } while (result < length);
+    std::cout<<"Received " << result << "bytes out of " << length << "\n";
     return msg;
 
 }
 
 //GENERAZIONE NONCE/IV/RANDOM
-int RandomGenerator(unsigned char* buf, int length) {
+int RandomGenerator(unsigned char* &buf, int length) {
     // Seed OpenSSL PRNG
     RAND_poll();
     // Generate length bytes at random
     return RAND_bytes(buf, length);
 } 
 
-
-//PARSE DELLE OPERAZIONE (IF OPERATIONID==1 THEN)
-int ParseOperation(int operationID) {
-    return 1;
-    //etc
-} 
 
 //CRIPTAZIONE DEI PACCHETTI
 

@@ -89,16 +89,15 @@ git clone 'https://github.com/RakuJa/ACP-Server'
 #### Create Certs
 
 #### Server
--L/usr/local -lssl
 g++ -Wall server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp -o server -lcrypto
-sudo ./server || Ex: sudo ./server 6000
+sudo ./server || Ex: sudo ./server 25565
 
 #### Client
 g++ client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp -o client -lcrypto
-./client   || ./client 192.168.43.54 6000
+./client   || ./client 127.0.0.1 25565
 
 #### Monitor
-ssldump -i wlan0 port 6000
+ssldump -i wlan0 port 25565
 
 **Install OpenSLL!**
 

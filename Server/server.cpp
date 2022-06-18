@@ -80,6 +80,10 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	}
 	unsigned char* nonceC = ReadMessage(sd, NONCE_LEN);
 
+	if (nonceC == NULL) {
+		std::cout <<"Failed to fetch nonce C";
+	}
+
 	// Send ack or abort
 	SendMessage(sd, HANDSHAKE_ACK, sizeof(HANDSHAKE_ACK));
 
@@ -88,7 +92,6 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	****************************************/
 
 	std::string serverCer = ReadFile(SERVER_CERT_NAME);
-	// std::cout<< "Certificate length " <<std::to_string(serverCer.length()).c_str() << '\n';
 
 	// send cert length
 	SendMessage(sd, std::to_string(serverCer.length()).c_str(), sizeof(uint32_t));
@@ -96,61 +99,44 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	// send cert
 	SendMessage(sd, serverCer.c_str(), serverCer.length());
 
-	unsigned char resultOfLogin = *ReadMessage(sd, sizeof(HANDSHAKE_ERROR));
-	std::cout<<resultOfLogin << '\n';
-	if (resultOfLogin == *HANDSHAKE_ERROR) {
+	unsigned char resultOfCertificateValidation = *ReadMessage(sd, sizeof(HANDSHAKE_ERROR));
+	if (resultOfCertificateValidation == *HANDSHAKE_ERROR) {
 		std::cerr << "Certificate was not valid for the client" << '\n';
 		exit(1);
 	}
 
+	/**************************
+	**GENERATE SIGN & SEND IT**
+	***************************/
+
 	EVP_PKEY* myPrivateKey = GenerateDiffieHellmanPrivateAndPublicPair();
 	if (myPrivateKey == NULL) {
-		std::cerr << "Error generating private key, u fucked up kiddo" << std::endl;
+		std::cerr << "Error generating private key" << std::endl;
 		exit(1);
 	}
 
 	EVP_PKEY* myPublicKey = NULL;
-	unsigned char* serverPublicKey = ExtractPublicKey("ServerDhPublicKey.PEM", myPrivateKey, myPublicKey);
+	u_int32_t serverDhPublicKeyLength = 0;
+	unsigned char* serverDhPublicKey = ExtractPublicKey("ServerDhPublicKey.PEM", myPrivateKey, myPublicKey, serverDhPublicKeyLength);
 
-	if (serverPublicKey == NULL) {
-		std::cerr << "Error generating public key, u fucked up kiddo" << std::endl;
+	if (serverDhPublicKey == NULL) {
+		std::cerr << "Error generating public key" << std::endl;
 		exit(1);
 	}
-	u_int32_t serverPublicKeyLength = sizeof(serverPublicKey);
 
-	if (SendMessage(sd, std::to_string(serverPublicKeyLength).c_str(), sizeof(uint32_t)) == FAIL) {
-		std::cerr << "Error sending public key length" << std::endl;
+	if (SendMessage(sd, std::to_string(serverDhPublicKeyLength).c_str(), sizeof(uint32_t)) == FAIL) {
+		std::cerr << "Error sending dh public key length" << std::endl;
 	}
 
-	if (SendMessage(sd, serverPublicKey, serverPublicKeyLength) == FAIL) {
-		std::cerr << "Error sending public key" << std::endl;
+	if (SendMessage(sd, serverDhPublicKey, serverDhPublicKeyLength) == FAIL) {
+		std::cerr << "Error sending dh public key" << std::endl;
 	} 
 
-	/***************************
-	**GENERATE NONCE & SEND IT**
-	***************************/
+	int msgToSignLength = NONCE_LEN + serverDhPublicKeyLength;
 
-	// Nonce(s) generation
-	unsigned char* nonceS = (unsigned char*)malloc(NONCE_LEN);
-	if (nonceS == NULL || RandomGenerator(nonceS, NONCE_LEN) == FAIL) {
-		std::cerr<<"Could not generate nonce(s) \n";
-	}
-
-	
-	if (SendMessage(sd, nonceS, NONCE_LEN) == FAIL) {
-		std::cerr<<"Failure while sending nonce(s)";
-	}
-
-
-	unsigned char* msgToSign = (unsigned char*) malloc (NONCE_LEN + serverPublicKeyLength);
-	if (msgToSign == NULL) {
-		std::cerr << "Failure allocating memory for signing" << std::endl;
-	}
-
-	memcpy(msgToSign, nonceC, NONCE_LEN);
-	memcpy(msgToSign + NONCE_LEN, serverPublicKey, serverPublicKeyLength);
-	//free(serverPublicKey);
-	free(nonceC);
+	std::basic_string<unsigned char> part1 = nonceC;
+	std::basic_string<unsigned char> part2 = serverDhPublicKey;
+	std::basic_string<unsigned char> msgToSign = part1 + part2;
 
 	uint32_t* signatureLength = (uint32_t*) malloc(sizeof(uint32_t));
 	if (signatureLength == NULL) {
@@ -165,7 +151,7 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 		std::cerr << "Error loading server private key from disk" << std::endl;
 	}
 
-	unsigned char* msgSigned = ComputeSign(EVP_sha256(), msgToSign, NONCE_LEN+serverPublicKeyLength, signatureLength, serverRSAPrivateKey);
+	unsigned char* msgSigned = ComputeSign(EVP_sha256(), msgToSign.c_str(), msgToSign.length(), signatureLength, serverRSAPrivateKey);
 	
 	if (SendMessage(sd, std::to_string(*signatureLength).c_str(), sizeof(uint32_t)) == FAIL) {
 		std::cerr << "error sending sign size" << std::endl;
@@ -173,6 +159,27 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 
 	if (SendMessage(sd, msgSigned, *signatureLength) == FAIL) {
 		std::cerr << "Error sending signature" << std::endl;
+	}
+
+
+	/***************************
+	**GENERATE NONCE & SEND IT**
+	***************************/
+
+	// Nonce(s) generation
+	unsigned char* nonceS = (unsigned char*)malloc(NONCE_LEN);
+	if (nonceS == NULL || RandomGenerator(nonceS, NONCE_LEN) == FAIL) {
+		std::cerr<<"Could not generate nonce(s) \n";
+	}
+
+	unsigned char resultOfSignatureValidation = *ReadMessage(sd, sizeof(HANDSHAKE_ERROR));
+	if (resultOfSignatureValidation == *HANDSHAKE_ERROR) {
+		std::cerr << "Certificate was not valid for the client" << '\n';
+		exit(1);
+	}
+	
+	if (SendMessage(sd, nonceS, NONCE_LEN) == FAIL) {
+		std::cerr<<"Failure while sending nonce(s)";
 	}
 
 }

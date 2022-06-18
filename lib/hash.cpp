@@ -18,7 +18,7 @@ unsigned char* ComputeHash(const EVP_MD* hash_type, unsigned char* input, size_t
     return digest;
 }
 
-unsigned char* ComputeSign(const EVP_MD* hash_type, unsigned char* input, size_t in_length, unsigned int* signature_length,  EVP_PKEY* key) {
+unsigned char* ComputeSign(const EVP_MD* hash_type, const unsigned char* input, size_t in_length, unsigned int* signature_length,  EVP_PKEY* key) {
 
     unsigned char* signature;
 
@@ -34,11 +34,22 @@ unsigned char* ComputeSign(const EVP_MD* hash_type, unsigned char* input, size_t
     return signature;
 }
 
-int VerifySign(const EVP_MD* hash_type, unsigned char* input, size_t in_length, unsigned char* signature, unsigned int signature_length, EVP_PKEY* key) {
+/**
+ * @brief Verifies given signedMsg with the msgToSign
+ * 
+ * @param hashType Algorithm used to hash the clear message and compare with signedMsg
+ * @param signedMsg signed message to validate
+ * @param signedMsgLength message to validate length
+ * @param clearMsg clear message to sign and compare
+ * @param clearMsgLength clear message length
+ * @param key key used to sign the clear message
+ * @return int 0 if the signature is invalid, -1 for generic errors and 1 for success
+ */
+int VerifySign(const EVP_MD* hashType, unsigned char* signedMsg, size_t signedMsgLength, const unsigned char* clearMsg, unsigned int clearMsgLength, EVP_PKEY* key) {
     EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
-    EVP_VerifyInit(md_ctx,hash_type);
-    EVP_VerifyUpdate(md_ctx,input,in_length);
-    int result = EVP_VerifyFinal(md_ctx,signature,signature_length,key);
+    EVP_VerifyInit(md_ctx,hashType);
+    EVP_VerifyUpdate(md_ctx,clearMsg,clearMsgLength);
+    int result = EVP_VerifyFinal(md_ctx,signedMsg,signedMsgLength,key);
     EVP_MD_CTX_free(md_ctx);
     return result;
 }
