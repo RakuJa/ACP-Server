@@ -2,7 +2,6 @@
 
 
 #include <unistd.h>
-#include <malloc.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -47,28 +46,24 @@ int OpenListener(int port)
 	return sd;
 }
 
-int CloseConnection() {
-	return 1;
-}
 
-// Root User Check
-int isRoot()
-{
-	if (getuid() != 0)
-		return 0;
-	else
-		return 1;
-}
 
-unsigned char* AuthenticateAndNegotiateKey(int sd) {
-
-	/***********************
-	**GET USERNAME & NONCE**
-	***********************/
+/**
+ * @brief Receive the login message from the client, returns NULL if login failed (username refused) or could not get nonce
+ * 
+ * @param usernamename will be used to return the username that succeded login
+ * @return unsigned* the nonce received from the client or NULL if login failed or could not get nonce
+ */
+unsigned char* FirstHandShakeMessageHandler(int sd, std::string & sName) {
+	
+	//                FIRST MESSAGE                //
+	/************************************************
+	** GET NONCE, GET USERNAME & VALIDATE USERNAME **
+	*************************************************/
 
 	unsigned char* username = ReadMessage(sd, USERNAME_MAX_LENGTH);
 
-	std::string sName = ConvertFromUnsignedCharToString(username, USERNAME_MAX_LENGTH);
+	sName = ConvertFromUnsignedCharToString(username, USERNAME_MAX_LENGTH);
 	sName = RemoveCharacter(sName, ' ');
 	sName = RemoveCharacter(sName, '\0');
 	std::cout<<sName<< '\n';
@@ -76,98 +71,109 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	if (parse_string(sName) == -1) {
 		std::cout<<"Fallita la validazione dello username: " << sName << '\n';
 		SendMessage(sd, HANDSHAKE_ERROR, sizeof(HANDSHAKE_ERROR));
-		exit(1);
+		return NULL;
 	}
 	unsigned char* nonceC = ReadMessage(sd, NONCE_LEN);
 
 	if (nonceC == NULL) {
-		std::cout <<"Failed to fetch nonce C";
+		std::cout <<"Failed to fetch client nonce " << std::endl;
+		SendMessage(sd, HANDSHAKE_ERROR, sizeof(HANDSHAKE_ERROR));
+		return NULL;
 	}
 
 	// Send ack or abort
 	SendMessage(sd, HANDSHAKE_ACK, sizeof(HANDSHAKE_ACK));
 
-	/***************************************
-	**READ CERTIFICATE FROM DISK & SEND IT**
-	****************************************/
+	return nonceC;
 
+}
+
+
+/**
+ * @brief Sends certificate, A, nonce(s), sign(nonce(c), A) and checks the client responses.
+ * 
+ * @param sd socket to receive and send messages from
+ * @param myPrivateKey will be used to return the privateDHKey
+ * @param nonceC client nonce that will be concatenated with A and signed
+ * @return unsigned* the generated nonce sent to the client or NULL if something went wrong
+ */
+unsigned char* SecondHandShakeMessageHandler(int sd, EVP_PKEY* myPrivateKey, unsigned char* nonceC) {
+
+	//                 SECOND MESSAGE                 //
+	/***************************************************
+	**SEND CERTIFICATE, A, NONCE(S), SIGN(NONCE(C), A)**
+	***************************************************/
 	std::string serverCer = ReadFile(SERVER_CERT_NAME);
 
-	// send cert length
-	SendMessage(sd, std::to_string(serverCer.length()).c_str(), sizeof(uint32_t));
-
-	// send cert
-	SendMessage(sd, serverCer.c_str(), serverCer.length());
+	// send server certificate 
+	if (SendMessage(sd, std::to_string(serverCer.length()).c_str(), sizeof(uint32_t)) == FAIL || SendMessage(sd, serverCer.c_str(), serverCer.length()) == FAIL) {
+		std::cerr << "Error sending certificate " << std::endl;
+		return NULL;
+	}
 
 	unsigned char resultOfCertificateValidation = *ReadMessage(sd, sizeof(HANDSHAKE_ERROR));
 	if (resultOfCertificateValidation == *HANDSHAKE_ERROR) {
-		std::cerr << "Certificate was not valid for the client" << '\n';
-		exit(1);
+		std::cerr << "Certificate was not valid for the client" << std::endl;
+		return NULL;
 	}
 
 	/**************************
 	**GENERATE SIGN & SEND IT**
 	***************************/
 
-	EVP_PKEY* myPrivateKey = GenerateDiffieHellmanPrivateAndPublicPair();
+	myPrivateKey = GenerateDiffieHellmanPrivateAndPublicPair();
 	if (myPrivateKey == NULL) {
 		std::cerr << "Error generating private key" << std::endl;
-		exit(1);
+		return NULL;
 	}
 
-	EVP_PKEY* myPublicKey = NULL;
 	u_int32_t serverDhPublicKeyLength = 0;
-	unsigned char* serverDhPublicKey = ExtractPublicKey("ServerDhPublicKey.PEM", myPrivateKey, myPublicKey, serverDhPublicKeyLength);
+	unsigned char* serverDhPublicKey = ExtractPublicKey("ServerDhPublicKey.PEM", myPrivateKey, serverDhPublicKeyLength);
 
 	if (serverDhPublicKey == NULL) {
-		std::cerr << "Error generating public key" << std::endl;
-		exit(1);
+		std::cerr << "Error extracting public key" << std::endl;
+		EVP_PKEY_free(myPrivateKey);
+		return NULL;
 	}
 
-	if (SendMessage(sd, std::to_string(serverDhPublicKeyLength).c_str(), sizeof(uint32_t)) == FAIL) {
-		std::cerr << "Error sending dh public key length" << std::endl;
+	if (SendMessage(sd, std::to_string(serverDhPublicKeyLength).c_str(), sizeof(uint32_t)) == FAIL || SendMessage(sd, serverDhPublicKey, serverDhPublicKeyLength) == FAIL) {
+		std::cerr << "Error sending DiffieHellman public key" << std::endl;
+		EVP_PKEY_free(myPrivateKey);
+		return NULL;
 	}
 
-	if (SendMessage(sd, serverDhPublicKey, serverDhPublicKeyLength) == FAIL) {
-		std::cerr << "Error sending dh public key" << std::endl;
-	} 
+	// CONCATS NONCE(C) WITH PEERPUBLICDHKEY
+	std::basic_string<unsigned char> msgToSign = std::basic_string<unsigned char>(nonceC) + std::basic_string<unsigned char>(serverDhPublicKey);
 
-	int msgToSignLength = NONCE_LEN + serverDhPublicKeyLength;
 
-	std::basic_string<unsigned char> part1 = nonceC;
-	std::basic_string<unsigned char> part2 = serverDhPublicKey;
-	std::basic_string<unsigned char> msgToSign = part1 + part2;
-
-	uint32_t* signatureLength = (uint32_t*) malloc(sizeof(uint32_t));
-	if (signatureLength == NULL) {
-		std::cerr << "Error allocating signature length space" << std::endl;
-	}
-
-	// READS SERVER PRIVATE KEY
+	/**********************************
+	**  READ SERVER RSA PRIVATE KEY  **
+	**AND USES IT TO SIGN NONCE AND A**
+	**********************************/
 
 	EVP_PKEY* serverRSAPrivateKey = ReadRSAPrivateKey("ServerRSAPrivate.pem");
 
 	if (serverRSAPrivateKey == NULL) {
 		std::cerr << "Error loading server private key from disk" << std::endl;
+		EVP_PKEY_free(myPrivateKey);
+		return NULL;
 	}
 
+	uint32_t signatureLength = 0;
 	unsigned char* msgSigned = ComputeSign(EVP_sha256(), msgToSign.c_str(), msgToSign.length(), signatureLength, serverRSAPrivateKey);
 	
-	if (SendMessage(sd, std::to_string(*signatureLength).c_str(), sizeof(uint32_t)) == FAIL) {
-		std::cerr << "error sending sign size" << std::endl;
-	}
-
-	if (SendMessage(sd, msgSigned, *signatureLength) == FAIL) {
-		std::cerr << "Error sending signature" << std::endl;
+	if (SendMessage(sd, std::to_string(signatureLength).c_str(), sizeof(uint32_t)) == FAIL || SendMessage(sd, msgSigned, signatureLength) == FAIL) {
+		std::cerr << "Error sending signature " << std::endl;
+		EVP_PKEY_free(myPrivateKey);
+		return NULL;
 	}
 
 	unsigned char resultOfSignatureValidation = *ReadMessage(sd, sizeof(HANDSHAKE_ERROR));
 	if (resultOfSignatureValidation == *HANDSHAKE_ERROR) {
-		std::cerr << "Signature was not valid for the client, closing connection..." << '\n';
-		exit(1);
+		std::cerr << "Signature was not valid for the client" << std::endl;
+		EVP_PKEY_free(myPrivateKey);
+		return NULL;
 	}
-	
-
 
 	/***************************
 	**GENERATE NONCE & SEND IT**
@@ -175,13 +181,61 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 
 	// Nonce(s) generation
 	unsigned char* nonceS = (unsigned char*)malloc(NONCE_LEN);
-	if (nonceS == NULL || RandomGenerator(nonceS, NONCE_LEN) == FAIL) {
-		std::cerr<<"Could not generate nonce(s) \n";
+	if (nonceS == NULL) {
+		std::cerr<<"Could not allocate memory for nonce(s)" << std::endl;
+		EVP_PKEY_free(myPrivateKey);
+		return NULL;
 	}
 
-	if (SendMessage(sd, nonceS, NONCE_LEN) == FAIL) {
-		std::cerr<<"Failure while sending nonce(s)";
+	if (RandomGenerator(nonceS, NONCE_LEN) == FAIL || SendMessage(sd, nonceS, NONCE_LEN) == FAIL) {
+		std::cerr<<"Failure while generating or sending nonce(s)" << std::endl;
+		EVP_PKEY_free(myPrivateKey);
+		free(nonceS);
+		return NULL;
 	}
+
+	return nonceS;
+}
+
+
+
+unsigned char* AuthenticateAndNegotiateKey(int sd) {
+
+	/***********************
+	**GET USERNAME & NONCE**
+	***********************/
+
+	/***************************************
+	**READ CERTIFICATE FROM DISK & SEND IT**
+	****************************************/
+
+	std::string username = "Rintaro Okabe";
+	unsigned char* nonceC = FirstHandShakeMessageHandler(sd, username);
+	if (nonceC==NULL) {
+		return NULL;
+	}
+
+	std::cout << "=====================================================" << std::endl;
+	std::cout << "1/3 HandShake messages are successful! Keep it up :) " << std::endl;
+	std::cout << "=====================================================" << std::endl;
+
+	EVP_PKEY* diffieHellPrivateKey = NULL;
+	unsigned char* nonceS = SecondHandShakeMessageHandler(sd, diffieHellPrivateKey, nonceC);
+
+	if (nonceS == NULL) {
+		return NULL;
+	}
+
+	std::cout << "=====================================================" << std::endl;
+	std::cout << "2/3 HandShake messages are successful! Keep it up :) " << std::endl;
+	std::cout << "=====================================================" << std::endl;
+
+
+	// Third
+
+	free(nonceS);
+
+	return NULL;
 
 }
 
@@ -221,7 +275,10 @@ int main(int count, char *strings[])
 	printf("Connection: %s:%d\n",inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
 
 	unsigned char* key = AuthenticateAndNegotiateKey(client);
-	//std::cout<<key;
+	
+	if (key==NULL) {
+		std::cerr << "Authentication is still not completed! :|" << std::endl;
+	}
 
 	close(client);
 	close(server);

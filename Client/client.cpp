@@ -12,17 +12,11 @@
 #include "../lib/header/certificate.h"
 
 
-void CloseAfterFirstPacketFailure(int sd, unsigned char* nonce_buf) {
-	close(sd);
-	free(nonce_buf);
-	exit(1);
-}
-
 /**
  * @brief Sends the login message to the server, returns NULL if nonce failed to generate or username was refused by the server
  * 
  * @param usernamename will be used to return the username that succeded login
- * @return unsigned* the generated nonce sent to the server
+ * @return unsigned* the generated nonce sent to the server or NULL if something went wrong
  */
 unsigned char* FirstHandShakeMessageHandler(int sd, std::string & username) {
 	
@@ -33,9 +27,9 @@ unsigned char* FirstHandShakeMessageHandler(int sd, std::string & username) {
 
 
 	unsigned char* nonceC = (unsigned char*)malloc(NONCE_LEN);
-	if (nonceC == NULL || RandomGenerator(nonceC, NONCE_LEN) == FAIL) {
-		std::cerr<<"Could not generate nonce(c)" << std::endl;
-		CloseAfterFirstPacketFailure(sd, nonceC);
+	if (nonceC == NULL) {
+		std::cerr<<"Could allocate memory for nonce(c)" << std::endl;
+		return NULL;
 	}
 	// Get username
 	do {
@@ -46,15 +40,17 @@ unsigned char* FirstHandShakeMessageHandler(int sd, std::string & username) {
 
 
 	// Send first packet, nonce(c) and username
-	if (SendMessage(sd, username.c_str(), USERNAME_MAX_LENGTH) == FAIL || SendMessage(sd, nonceC, NONCE_LEN) == FAIL) {
-		std::cerr<<"Error sending username and nonce(c)" << std::endl;
-		CloseAfterFirstPacketFailure(sd, nonceC);
+	if (SendMessage(sd, username.c_str(), USERNAME_MAX_LENGTH) == FAIL || RandomGenerator(nonceC, NONCE_LEN) == FAIL || SendMessage(sd, nonceC, NONCE_LEN) == FAIL) {
+		std::cerr<<"Error sending username or generating and sending nonce(c)" << std::endl;
+		free(nonceC);
+		return NULL;
 	}
 
 	unsigned char resultOfLogin = *ReadMessage(sd, sizeof(HANDSHAKE_ERROR));
 	if (resultOfLogin == *HANDSHAKE_ERROR) {
 		std::cerr << "Username was not valid for the server" << std::endl;
-		CloseAfterFirstPacketFailure(sd, nonceC);
+		free(nonceC);
+		return NULL;
 	}
 
 	std::cout << "Username " << username << " is valid, login success!" << std::endl;
@@ -62,11 +58,11 @@ unsigned char* FirstHandShakeMessageHandler(int sd, std::string & username) {
 }
 
 /**
- * @brief Receives the login response from the server, that contains server certificate, nonce(s), sign(nonce(c), A), A(preshared secret)
+ * @brief Receives the login response from the server, that contains server certificate, nonce(s), sign(nonce(c), A), A(peer public key)
  * in case of error somewhere down the line returns NULL and handles all the frees (except the passed arguments) inside the method
  * 
  * @param sd socket to receive and send messages from
- * @param serverDhPublicKey will be used to return the pre-shared secret A (also called publicDHKey or peerDHKey)
+ * @param serverDhPublicKey will be used to return the publicDHKey also called peerDHKey
  * @param nonceC nonce sent previously to the server, used in the method to verify sign(nonce(c), A)
  * @return unsigned* the nonce sent by the server
  */
@@ -147,12 +143,8 @@ unsigned char* SecondHandShakeMessageHandler(int sd, unsigned char* serverDhPubl
 
 
 	// Sign (NONCE(C) + A)
-	
-	int msgToSignLength = NONCE_LEN + serverDhPublicKeyLength;
 
-	std::basic_string<unsigned char> part1 = nonceC;
-	std::basic_string<unsigned char> part2 = serverDhPublicKey;
-	std::basic_string<unsigned char> msgToSign = part1 + part2;
+	std::basic_string<unsigned char> msgToSign = std::basic_string<unsigned char>(nonceC) + std::basic_string<unsigned char>(serverDhPublicKey);
 
 	if (VerifySign(EVP_sha256(), serverSign, serverSignLength, msgToSign.c_str(), msgToSign.length(), serverRSAPubKey) != 1) {
 		std::cerr << "Could not verify sign(nonce(c), A)! Closing connection..." << std::endl;
@@ -177,6 +169,7 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	unsigned char* nonceC = FirstHandShakeMessageHandler(sd, username);
 
 	if (nonceC == NULL) {
+		free(nonceC);
 		return NULL;
 	}
 	std::cout << "=====================================================" << std::endl;
@@ -186,16 +179,16 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	unsigned char* diffieHellPublicKey = NULL;
 
 	unsigned char* nonceS = SecondHandShakeMessageHandler(sd, diffieHellPublicKey, nonceC);
-	if (nonceS == NULL) {
-		CloseAfterFirstPacketFailure(sd, nonceC);
-	}
-
 	free(nonceC);
+	if (nonceS == NULL) {
+		return NULL;
+	}
 
 	std::cout << "=====================================================" << std::endl;
 	std::cout << "2/3 HandShake messages are successful! Keep it up :) " << std::endl;
 	std::cout << "=====================================================" << std::endl;
 	
+	return NULL;
 	
 }
 
@@ -261,10 +254,13 @@ int main(int args_count, char *args[]) {
 
 
 	// HANDSHAKE
-	unsigned char* x = AuthenticateAndNegotiateKey(sd);
-	if (x == NULL) {
-		close(sd);
+	unsigned char* key = AuthenticateAndNegotiateKey(sd);
+
+	if (key==NULL) {
+		std::cerr << "Authentication is still not completed! :|" << std::endl;
 	}
+
+	close(sd);
 
 
 	/*************************
@@ -274,6 +270,6 @@ int main(int args_count, char *args[]) {
 	std::string handshakeSuccessFile = "login_success_art.txt";
 	std::cout<<ReadFile(handshakeSuccessFile) << std::endl;
 
-	
+
 	return 0;
 }

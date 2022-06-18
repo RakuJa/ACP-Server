@@ -18,7 +18,7 @@ unsigned char* ComputeHash(const EVP_MD* hash_type, unsigned char* input, size_t
     return digest;
 }
 
-unsigned char* ComputeSign(const EVP_MD* hash_type, const unsigned char* input, size_t in_length, unsigned int* signature_length,  EVP_PKEY* key) {
+unsigned char* ComputeSign(const EVP_MD* hash_type, const unsigned char* input, size_t in_length, u_int32_t& signature_length,  EVP_PKEY* key) {
 
     unsigned char* signature;
 
@@ -28,7 +28,7 @@ unsigned char* ComputeSign(const EVP_MD* hash_type, const unsigned char* input, 
         EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
         EVP_SignInit(md_ctx, hash_type);
         EVP_SignUpdate(md_ctx, input, in_length);
-        EVP_SignFinal(md_ctx, signature, signature_length, key);
+        EVP_SignFinal(md_ctx, signature, &signature_length, key);
         EVP_MD_CTX_free(md_ctx);
     }
     return signature;

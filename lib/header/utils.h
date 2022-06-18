@@ -108,10 +108,10 @@ std::string ReadFile(const std::string &filename) {
     return content;
 }
 
-std::string ConvertFromUnsignedCharToString(unsigned char* input, uint length) {
-    return std::string(reinterpret_cast<char*>(input), length);
+std::string ConvertFromUnsignedCharToString(const unsigned char* input, uint length) {
+    return std::string(reinterpret_cast<const char*>(input), length);
 }
 
-char* ConvertFromUnsignedCharToSigned(unsigned char* input) {
-    return reinterpret_cast<char*>(input);
+const char* ConvertFromUnsignedCharToSigned(const unsigned char* input) {
+    return reinterpret_cast<const char*>(input);
 }

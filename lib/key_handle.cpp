@@ -56,8 +56,6 @@ unsigned char* GeneratePreSharedSecret(EVP_PKEY* my_prvkey, EVP_PKEY* peer_pubke
  */
 EVP_PKEY* GenerateDiffieHellmanPrivateAndPublicPair() {
     EVP_PKEY* dh_params = EVP_PKEY_new();
-    if (dh_params == NULL) return NULL;
-
     if (EVP_PKEY_set1_DH(dh_params, DH_get_2048_224()) != 1) return NULL;
 
     EVP_PKEY_CTX* diffiehell_ctx = EVP_PKEY_CTX_new(dh_params, NULL);
@@ -93,10 +91,10 @@ EVP_PKEY* GenerateDiffieHellmanPrivateAndPublicPair() {
  * @param publicKey publicKey Pointer to EVP_PKEY that will be overwritten with the value extracted from myPPKey
  * @return unsigned* unsigned char* value of the extracted public key
  */
-unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, EVP_PKEY* publicKey, uint32_t& publicKeyLength) {
+unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, uint32_t& publicKeyLength) {
 
     // Clean and initiate variables
-    publicKey = EVP_PKEY_new();
+    EVP_PKEY* publicKey = EVP_PKEY_new();
      uint32_t* bufferLength = (uint32_t*) malloc(sizeof(u_int32_t));
 
     // Convert from EVP_PKEY to PEM
