@@ -155,7 +155,7 @@ unsigned char* SecondHandShakeMessageHandler(int sd, unsigned char* serverDhPubl
 	std::basic_string<unsigned char> msgToSign = part1 + part2;
 
 	if (VerifySign(EVP_sha256(), serverSign, serverSignLength, msgToSign.c_str(), msgToSign.length(), serverRSAPubKey) != 1) {
-		std::cerr << "Could not verify sign(nonce(c), A)! Abort Osi" << std::endl;
+		std::cerr << "Could not verify sign(nonce(c), A)! Closing connection..." << std::endl;
 		SendMessage(sd, HANDSHAKE_ERROR, sizeof(HANDSHAKE_ERROR));
 		return NULL;
 	}
@@ -251,20 +251,29 @@ int main(int args_count, char *args[]) {
 
 	printf("Connected with hostname %s and port %s \n", hostname, portstr);
 
-	const char* banner = R"(
-   ___  _____    ___  ___  ____     _________________  
-  / _ |/ ___/   / _ \/ _ \/ __ \__ / / __/ ___/_  __/  
- / __ / /__    / ___/ , _/ /_/ / // / _// /__  / /     
-/_/ |_\___/___/_/  /_/|_______/\___/___/\___/ /_/      
-      ____/ (_)__ ___  / /_                            
-     / __/ / / -_) _ \/ __/                            
-     \__/_/_/\__/_//_/\__/                             
-                                                                                                                          
-	)";
-	std::cout<<banner << "\n";
+
+	/*******************
+	** STARTUP ART :) **
+	*******************/
+
+	std::string welcomeFile = "start_client_art.txt";
+	std::cout<<ReadFile(welcomeFile) << std::endl;
+
+
+	// HANDSHAKE
 	unsigned char* x = AuthenticateAndNegotiateKey(sd);
 	if (x == NULL) {
 		close(sd);
 	}
+
+
+	/*************************
+	** LOGIN SUCCESS ART :) **
+	**************************/
+
+	std::string handshakeSuccessFile = "login_success_art.txt";
+	std::cout<<ReadFile(handshakeSuccessFile) << std::endl;
+
+	
 	return 0;
 }

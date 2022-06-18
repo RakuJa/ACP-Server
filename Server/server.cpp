@@ -161,6 +161,13 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 		std::cerr << "Error sending signature" << std::endl;
 	}
 
+	unsigned char resultOfSignatureValidation = *ReadMessage(sd, sizeof(HANDSHAKE_ERROR));
+	if (resultOfSignatureValidation == *HANDSHAKE_ERROR) {
+		std::cerr << "Signature was not valid for the client, closing connection..." << '\n';
+		exit(1);
+	}
+	
+
 
 	/***************************
 	**GENERATE NONCE & SEND IT**
@@ -172,12 +179,6 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 		std::cerr<<"Could not generate nonce(s) \n";
 	}
 
-	unsigned char resultOfSignatureValidation = *ReadMessage(sd, sizeof(HANDSHAKE_ERROR));
-	if (resultOfSignatureValidation == *HANDSHAKE_ERROR) {
-		std::cerr << "Certificate was not valid for the client" << '\n';
-		exit(1);
-	}
-	
 	if (SendMessage(sd, nonceS, NONCE_LEN) == FAIL) {
 		std::cerr<<"Failure while sending nonce(s)";
 	}
@@ -206,20 +207,12 @@ int main(int count, char *strings[])
 	struct sockaddr_in addr;
 	socklen_t len = sizeof(addr);
 
+	/*******************
+	** STARTUP ART :) **
+	*******************/
 
-		const char* banner = R"(
-   ___  _____    ___  ___  ____     _________________
-  / _ |/ ___/   / _ \/ _ \/ __ \__ / / __/ ___/_  __/
- / __ / /__    / ___/ , _/ /_/ / // / _// /__  / /   
-/_/ |_\___/   /_/  /_/|_|\____/\___/___/\___/ /_/    
-     / __/__ _____  _____ ____                       
-    _\ \/ -_) __/ |/ / -_) __/                       
-   /___/\__/_/  |___/\__/_/                          
-                                                     
-	)";
-	std::cout<<banner << "\n";
-
-
+	std::string welcomeFile = "start_server_art.txt";
+	std::cout<<ReadFile(welcomeFile) << std::endl;
 
 	listen(server,5);
 

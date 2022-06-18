@@ -2,7 +2,7 @@
 
 
 
-X509* ReadCertificate(char* fileName, unsigned char* buffer, uint32_t length) {
+X509* ReadCertificate(const char* fileName, const unsigned char* buffer, uint32_t length) {
 
     // Read buffer into File
     FILE* f_cert = fopen(fileName,"w+");
@@ -17,7 +17,7 @@ X509* ReadCertificate(char* fileName, unsigned char* buffer, uint32_t length) {
 }
 
 
-X509_STORE* BuildStore(char* file_crl,char* root_cert){
+X509_STORE* BuildStore(const char* file_crl,const char* root_cert){
     X509_STORE* store = X509_STORE_new();
     if(!store) {
         std::cerr<<"Error: X509_STORE_new returned NULL" << std::endl;
