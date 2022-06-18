@@ -85,7 +85,7 @@ int RandomGenerator(unsigned char* &buf, int length) {
 Checks if the string is less than the maximum and if it does contain only alpha numeric.
 Returns -1 if the string is not valid
 */
-int parse_string(std::string analyze_string) {
+int ParseString(std::string analyze_string) {
     if (analyze_string.length() <= USERNAME_MAX_LENGTH) {
         for (std::string::const_iterator s = analyze_string.begin(); s != analyze_string.end(); ++s)
             if (!isalnum(*s)) return FAIL;

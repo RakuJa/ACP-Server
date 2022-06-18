@@ -35,7 +35,7 @@ unsigned char* FirstHandShakeMessageHandler(int sd, std::string & username) {
 	do {
 		printf("Please insert a valid username (only alphanumeric character and length < %d : \n", USERNAME_MAX_LENGTH);
 		std::cin>>username;
-	} while (std::cin.fail() || parse_string(username) != 1);
+	} while (std::cin.fail() || ParseString(username) == FAIL);
 	username.resize(USERNAME_MAX_LENGTH); // add padding to standardize username length and avoid sending a message with username size
 
 
@@ -81,7 +81,7 @@ unsigned char* SecondHandShakeMessageHandler(int sd, unsigned char* serverDhPubl
 
 	// GETS CERTIFICATE SIZE
 	int certificateBytesLength = stoi(ConvertFromUnsignedCharToString(ReadMessage(sd, sizeof(u_int32_t)), sizeof(u_int32_t)));
-	if (certificateBytesLength == 0 || certificateBytesLength == -1) {
+	if (certificateBytesLength == 0 || certificateBytesLength == FAIL) {
 		std::cerr << "Certificate length received is invalid" << std::endl;
 		return NULL;
 	}
@@ -124,7 +124,7 @@ unsigned char* SecondHandShakeMessageHandler(int sd, unsigned char* serverDhPubl
 
 	int serverDhPublicKeyLength = stoi(ConvertFromUnsignedCharToString(ReadMessage(sd, sizeof(u_int32_t)), sizeof(u_int32_t)));
 
-	if (serverDhPublicKeyLength == 0 || serverDhPublicKeyLength == -1) {
+	if (serverDhPublicKeyLength == 0 || serverDhPublicKeyLength == FAIL) {
 		std::cerr << "DiffieHellman public key length received is invalid" << std::endl;
 		return NULL;
 	}
@@ -135,7 +135,7 @@ unsigned char* SecondHandShakeMessageHandler(int sd, unsigned char* serverDhPubl
 	// READ SIGNATURE
 
 	int serverSignLength = stoi(ConvertFromUnsignedCharToString(ReadMessage(sd, sizeof(u_int32_t)), sizeof(u_int32_t)));
-	if (serverSignLength == 0 || serverSignLength == -1) {
+	if (serverSignLength == 0 || serverSignLength == FAIL) {
 		std::cerr << "Server signature length received is invalid" << std::endl;
 	}
 

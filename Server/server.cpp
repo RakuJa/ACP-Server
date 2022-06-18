@@ -16,7 +16,22 @@
 #include "../lib/header/hash.h"
 #include "../lib/header/certificate.h"
 #include "../lib/header/key_handle.h"
+#include <sstream>
 
+int isUsernameRegistered(const char *sentence, std::string username) {
+
+  	std::stringstream ss(sentence);
+  	std::string to;
+
+  	if (sentence != NULL) {
+    	while(std::getline(ss,to,'\n')) {
+			if (username == to) {
+				return 1;
+			}
+    	}
+  	}
+	return FAIL;
+}
 
 int OpenListener(int port)
 {
@@ -66,10 +81,12 @@ unsigned char* FirstHandShakeMessageHandler(int sd, std::string & sName) {
 	sName = ConvertFromUnsignedCharToString(username, USERNAME_MAX_LENGTH);
 	sName = RemoveCharacter(sName, ' ');
 	sName = RemoveCharacter(sName, '\0');
-	std::cout<<sName<< '\n';
+	std::cout<<sName<< std::endl;
 
-	if (parse_string(sName) == -1) {
-		std::cout<<"Fallita la validazione dello username: " << sName << '\n';
+	std::string clientListFile = "client_list.txt";
+
+	if (ParseString(sName) == FAIL || isUsernameRegistered(ReadFile(clientListFile).c_str(), sName) == FAIL) {
+		std::cout<<"Fallita la validazione dello username: " << sName << std::endl;
 		SendMessage(sd, HANDSHAKE_ERROR, sizeof(HANDSHAKE_ERROR));
 		return NULL;
 	}
