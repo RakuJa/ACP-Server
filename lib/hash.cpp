@@ -1,4 +1,4 @@
-#include <header/hash.h>
+#include "header/hash.h"
 
 unsigned char* ComputeHash(const EVP_MD* hash_type, unsigned char* input, size_t in_length, unsigned int* digest_length) {
     unsigned char* digest;

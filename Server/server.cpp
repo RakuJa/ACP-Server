@@ -16,6 +16,7 @@
 #include "../lib/header/utils.h"
 #include "../lib/header/hash.h"
 #include "../lib/header/certificate.h"
+#include "../lib/header/key_handle.h"
 
 
 int OpenListener(int port)
@@ -60,18 +61,120 @@ int isRoot()
 }
 
 unsigned char* AuthenticateAndNegotiateKey(int sd) {
+
+	/***********************
+	**GET USERNAME & NONCE**
+	***********************/
+
 	unsigned char* username = ReadMessage(sd, USERNAME_MAX_LENGTH);
 
-	std::string sName (reinterpret_cast<char*>(username), USERNAME_MAX_LENGTH);
+	std::string sName = ConvertFromUnsignedCharToString(username, USERNAME_MAX_LENGTH);
 	sName = RemoveCharacter(sName, ' ');
 	sName = RemoveCharacter(sName, '\0');
 	std::cout<<sName<< '\n';
 
 	if (parse_string(sName) == -1) {
 		std::cout<<"Fallita la validazione dello username: " << sName << '\n';
-		return username;
+		SendMessage(sd, HANDSHAKE_ERROR, sizeof(HANDSHAKE_ERROR));
+		exit(1);
 	}
-	unsigned char* nonce = ReadMessage(sd, NONCE_LEN);
+	unsigned char* nonceC = ReadMessage(sd, NONCE_LEN);
+
+	// Send ack or abort
+	SendMessage(sd, HANDSHAKE_ACK, sizeof(HANDSHAKE_ACK));
+
+	/***************************************
+	**READ CERTIFICATE FROM DISK & SEND IT**
+	****************************************/
+
+	std::string serverCer = ReadFile(SERVER_CERT_NAME);
+	// std::cout<< "Certificate length " <<std::to_string(serverCer.length()).c_str() << '\n';
+
+	// send cert length
+	SendMessage(sd, std::to_string(serverCer.length()).c_str(), sizeof(uint32_t));
+
+	// send cert
+	SendMessage(sd, serverCer.c_str(), serverCer.length());
+
+	unsigned char resultOfLogin = *ReadMessage(sd, sizeof(HANDSHAKE_ERROR));
+	std::cout<<resultOfLogin << '\n';
+	if (resultOfLogin == *HANDSHAKE_ERROR) {
+		std::cerr << "Certificate was not valid for the client" << '\n';
+		exit(1);
+	}
+
+	EVP_PKEY* myPrivateKey = GenerateDiffieHellmanPrivateAndPublicPair();
+	if (myPrivateKey == NULL) {
+		std::cerr << "Error generating private key, u fucked up kiddo" << std::endl;
+		exit(1);
+	}
+
+	EVP_PKEY* myPublicKey = NULL;
+	unsigned char* serverPublicKey = ExtractPublicKey("ServerDhPublicKey.PEM", myPrivateKey, myPublicKey);
+
+	if (serverPublicKey == NULL) {
+		std::cerr << "Error generating public key, u fucked up kiddo" << std::endl;
+		exit(1);
+	}
+	u_int32_t serverPublicKeyLength = sizeof(serverPublicKey);
+
+	if (SendMessage(sd, std::to_string(serverPublicKeyLength).c_str(), sizeof(uint32_t)) == FAIL) {
+		std::cerr << "Error sending public key length" << std::endl;
+	}
+
+	if (SendMessage(sd, serverPublicKey, serverPublicKeyLength) == FAIL) {
+		std::cerr << "Error sending public key" << std::endl;
+	} 
+
+	/***************************
+	**GENERATE NONCE & SEND IT**
+	***************************/
+
+	// Nonce(s) generation
+	unsigned char* nonceS = (unsigned char*)malloc(NONCE_LEN);
+	if (nonceS == NULL || RandomGenerator(nonceS, NONCE_LEN) == FAIL) {
+		std::cerr<<"Could not generate nonce(s) \n";
+	}
+
+	
+	if (SendMessage(sd, nonceS, NONCE_LEN) == FAIL) {
+		std::cerr<<"Failure while sending nonce(s)";
+	}
+
+
+	unsigned char* msgToSign = (unsigned char*) malloc (NONCE_LEN + serverPublicKeyLength);
+	if (msgToSign == NULL) {
+		std::cerr << "Failure allocating memory for signing" << std::endl;
+	}
+
+	memcpy(msgToSign, nonceC, NONCE_LEN);
+	memcpy(msgToSign + NONCE_LEN, serverPublicKey, serverPublicKeyLength);
+	//free(serverPublicKey);
+	free(nonceC);
+
+	uint32_t* signatureLength = (uint32_t*) malloc(sizeof(uint32_t));
+	if (signatureLength == NULL) {
+		std::cerr << "Error allocating signature length space" << std::endl;
+	}
+
+	// READS SERVER PRIVATE KEY
+
+	EVP_PKEY* serverRSAPrivateKey = ReadRSAPrivateKey("ServerRSAPrivate.pem");
+
+	if (serverRSAPrivateKey == NULL) {
+		std::cerr << "Error loading server private key from disk" << std::endl;
+	}
+
+	unsigned char* msgSigned = ComputeSign(EVP_sha256(), msgToSign, NONCE_LEN+serverPublicKeyLength, signatureLength, serverRSAPrivateKey);
+	
+	if (SendMessage(sd, std::to_string(*signatureLength).c_str(), sizeof(uint32_t)) == FAIL) {
+		std::cerr << "error sending sign size" << std::endl;
+	}
+
+	if (SendMessage(sd, msgSigned, *signatureLength) == FAIL) {
+		std::cerr << "Error sending signature" << std::endl;
+	}
+
 }
 
 int main(int count, char *strings[])

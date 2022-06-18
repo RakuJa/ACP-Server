@@ -9,6 +9,7 @@
 #include <openssl/err.h>
 #include "../lib/header/utils.h"
 #include "../lib/header/hash.h"
+#include "../lib/header/certificate.h"
 
 
 void CloseAfterFirstPacketFailure(int sd, unsigned char* nonce_buf) {
@@ -19,25 +20,109 @@ void CloseAfterFirstPacketFailure(int sd, unsigned char* nonce_buf) {
 
 unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	
-	// Nonce(c) generation
-	unsigned char* nonce_buf = (unsigned char*)malloc(NONCE_LEN);
-	if (nonce_buf == NULL || RandomGenerator(nonce_buf, NONCE_LEN) == FAIL) {
-		std::cout<<"Could not generate nonce(c) \n";
-		CloseAfterFirstPacketFailure(sd, nonce_buf);
+
+	//                FIRST MESSAGE                //
+	/************************************************
+	**GENERATE NONCE, GET USERNAME & SEND THEM BOTH**
+	*************************************************/
+
+
+	unsigned char* nonceC = (unsigned char*)malloc(NONCE_LEN);
+	if (nonceC == NULL || RandomGenerator(nonceC, NONCE_LEN) == FAIL) {
+		std::cerr<<"Could not generate nonce(c)" << std::endl;
+		CloseAfterFirstPacketFailure(sd, nonceC);
 	}
 	// Get username
 	std::string username;
 	do {
 		printf("Please insert a valid username (only alphanumeric character and length < %d : \n", USERNAME_MAX_LENGTH);
 		std::cin>>username;
-	} while (std::cin.fail() || parse_string(username) != FAIL);
+	} while (std::cin.fail() || parse_string(username) != 1);
 	username.resize(USERNAME_MAX_LENGTH); // add padding to standardize packet size
 
+
 	// Send first packet, nonce(c) and username
-	if (SendMessage(sd, username.c_str(), USERNAME_MAX_LENGTH) == FAIL || SendMessage(sd, nonce_buf, NONCE_LEN) == FAIL) {
-		std::cout<<"Error sending username and nonce(c) \n";
-		CloseAfterFirstPacketFailure(sd, nonce_buf);
+	if (SendMessage(sd, username.c_str(), USERNAME_MAX_LENGTH) == FAIL || SendMessage(sd, nonceC, NONCE_LEN) == FAIL) {
+		std::cerr<<"Error sending username and nonce(c)" << std::endl;
+		CloseAfterFirstPacketFailure(sd, nonceC);
 	}
+
+	unsigned char resultOfLogin = *ReadMessage(sd, sizeof(HANDSHAKE_ERROR));
+	if (resultOfLogin == *HANDSHAKE_ERROR) {
+		std::cerr << "Username was not valid for the server" << std::endl;
+		CloseAfterFirstPacketFailure(sd, nonceC);
+	}
+
+	std::cout << "Username " << username << "is valid, login success!" << std::endl;
+
+	//                  SECOND MESSAGE                 //
+	/***************************************************
+	**GETS CERTIFICATE, A, NONCE(S), SIGN(NONCE(S), A)**
+	***************************************************/
+
+	/*
+	* 1) GETS CERTIFICATE SIZE & CERTIFICATE
+	* 2) PARSE AND VALIDATE CERTIFICATE
+	* 3) GETS A
+	* 4) GETS SIGN(A, NONCE(C))
+	*/
+
+	// GETS CERTIFICATE SIZE
+	int certificateBytesLength = stoi(ConvertFromUnsignedCharToString(ReadMessage(sd, sizeof(u_int32_t)), sizeof(u_int32_t)));
+	if (certificateBytesLength == 0 || certificateBytesLength == -1) {
+		std::cerr << "Certificate length received is invalid" << std::endl;
+		CloseAfterFirstPacketFailure(sd, nonceC);
+	}
+
+	// GETS CERTIFICATE
+	unsigned char* serverCertificate = ReadMessage(sd, certificateBytesLength);
+
+	if (serverCertificate == NULL) {
+		std::cerr << "Certificate read failed" << std::endl;
+		CloseAfterFirstPacketFailure(sd, nonceC);
+	}
+
+	// PARSE AND VALIDATE CERTIFICATE
+	X509* parsedServerCertificate = ReadCertificate(SERVER_CERT_NAME, serverCertificate, certificateBytesLength);
+	if (parsedServerCertificate == NULL) {
+		std::cerr << "Error parsing server certificate" << std::endl;
+	}
+	X509_STORE* store = BuildStore("ClientCrl.pem", "ServerRoot.pem");
+	if (store == NULL) {
+		std::cerr << "Error building certificate store" << std::endl;
+	}
+	EVP_PKEY* serverRSAPubKey = ValidateCertificate(store, parsedServerCertificate);
+	if (serverRSAPubKey == NULL) {
+		std::cerr << "Server certificate is not valid" << std::endl;
+		SendMessage(sd, HANDSHAKE_ERROR, sizeof(HANDSHAKE_ERROR));
+		exit(1);
+	}
+	SendMessage(sd, HANDSHAKE_ACK, sizeof(HANDSHAKE_ACK));
+
+
+	// GET A LENGTH
+
+	int dhPublicKeyBytesLength = stoi(ConvertFromUnsignedCharToString(ReadMessage(sd, sizeof(u_int32_t)), sizeof(u_int32_t)));
+	std::cout << "DiffieHellman public key byte size: " <<  dhPublicKeyBytesLength << std::endl;
+
+	if (dhPublicKeyBytesLength == 0 || dhPublicKeyBytesLength == -1) {
+		std::cerr << "DiffieHellman public key length received is invalid" << std::endl;
+		CloseAfterFirstPacketFailure(sd, nonceC);
+	}
+
+	// GET A (PRESHARED SECRET)
+	unsigned char* serverPublicKey = ReadMessage(sd, dhPublicKeyBytesLength);
+
+	// GETS NONCE(S)
+	unsigned char* nonceS = ReadMessage(sd, NONCE_LEN);
+
+	int signLength = stoi(ConvertFromUnsignedCharToString(ReadMessage(sd, sizeof(u_int32_t)), sizeof(u_int32_t)));
+
+	std::cout << signLength << std::endl;
+
+	unsigned char* signedNonceAndPreShared = ReadMessage(sd, signLength);
+
+	std::cout << signedNonceAndPreShared << std::endl;
 	
 }
 

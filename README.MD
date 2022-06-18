@@ -89,11 +89,12 @@ git clone 'https://github.com/RakuJa/ACP-Server'
 #### Create Certs
 
 #### Server
-g++ -Wall -o server server.cpp -L/usr/local -lssl -lcrypto
+-L/usr/local -lssl
+g++ -Wall server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp -o server -lcrypto
 sudo ./server || Ex: sudo ./server 6000
 
 #### Client
-g++ -Wall -o client client.cpp -L/usr/local -lssl -lcrypto
+g++ client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp -o client -lcrypto
 ./client   || ./client 192.168.43.54 6000
 
 #### Monitor

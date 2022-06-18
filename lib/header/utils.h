@@ -8,16 +8,17 @@
 #include <unistd.h>
 #include <malloc.h>
 #include <algorithm>
+#include <fstream>
+#include <openssl/err.h>
 
 #define FAIL    -1
-
-
 #define BUFFER  1024
-
-
 #define NONCE_LEN 128
+#define HANDSHAKE_ERROR "0"
+#define HANDSHAKE_ACK "1"
 #define DH_KEY_LENGTH 128
 #define USERNAME_MAX_LENGTH 17
+#define SERVER_CERT_NAME "ServerCert.pem"
 
 //SEND MESSAGE (PACCHETTI)
 
@@ -27,7 +28,7 @@ Fetches the message to send from the given msg buffer and consumes until the giv
 int SendMessage(int socket, const void* msg, int length) {
     int result = 0;
     do {
-        int tmp = send(socket, msg, length,0);
+        int tmp = send(socket, msg, length, 0);
         if (tmp==FAIL) {
             return tmp;
         }
@@ -102,4 +103,18 @@ Removes all instances of the argument character from the argument string, then r
 std::string RemoveCharacter(std::string input, char character) {
     input.erase(std::remove(input.begin(), input.end(),character), input.end());
     return input;
+}
+
+std::string ReadFile(const std::string &filename) {
+    std::ifstream file(filename);
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    return content;
+}
+
+std::string ConvertFromUnsignedCharToString(unsigned char* input, uint length) {
+    return std::string(reinterpret_cast<char*>(input), length);
+}
+
+char* ConvertFromUnsignedCharToSigned(unsigned char* input) {
+    return reinterpret_cast<char*>(input);
 }
