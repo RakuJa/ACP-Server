@@ -104,7 +104,7 @@ unsigned char* SecondHandShakeMessageHandler(int sd, unsigned char* serverDhPubl
 		std::cerr << "Error parsing server certificate" << std::endl;
 		return NULL;
 	}
-	X509_STORE* store = BuildStore("ClientCrl.pem", "ServerRoot.pem");
+	X509_STORE* store = BuildStore("ClientCrl.pem", "CA.pem");
 	if (store == NULL) {
 		std::cerr << "Error building certificate store" << std::endl;
 		X509_free(parsedServerCertificate);
