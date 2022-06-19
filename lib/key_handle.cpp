@@ -124,16 +124,13 @@ EVP_PKEY* ConvertUnsignedCharToPublicDHKey(std::string filename, unsigned char* 
 
     FILE* pubkey_PEM = fopen(filename.c_str(),"w+");
     if(!pubkey_PEM){
-        std::cout<<"Errore nell'apertura del file PEM\n";
+        std::cerr<<"Error opening disk file to write the key on" << std::endl;
         return NULL;
     }
-
-    std::cout << "file aperto";
     
-    //scrivo la chiave pubblica ricevuta nel file PEM
     uint32_t ret = fwrite(key,1,key_length,pubkey_PEM);
     if(ret < key_length){
-        std::cout<<"Errore scrittura del file PEM\n";
+        std::cerr<<"Error while writing the key on file" << std::endl;
         fclose(pubkey_PEM);
         return NULL;
     }
@@ -141,7 +138,7 @@ EVP_PKEY* ConvertUnsignedCharToPublicDHKey(std::string filename, unsigned char* 
     fseek(pubkey_PEM,0,SEEK_SET);
     EVP_PKEY* received_pubkey = PEM_read_PUBKEY(pubkey_PEM,NULL,NULL,NULL);
     if(!received_pubkey){
-        std::cout<<"Errore nella lettura della chiave pubblica ricevuta\n";
+        std::cerr<<"Error reading public key" << std::endl;
         fclose(pubkey_PEM);
         return NULL;
     }
