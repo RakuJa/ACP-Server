@@ -196,27 +196,11 @@ unsigned char* ThirdHandShakeMessageHandler(int sd,unsigned char* nonceS, std::s
 		delete[] peerPublicDHKey;
 		return NULL;
 	}
-	std::string peerPublicKeyName = "peerPublicKey.pem";
-	EVP_PKEY* peerPublicKey = ConvertUnsignedCharToPublicDHKey(peerPublicKeyName, peerPublicDHKey, serverDhPublicKeyLength);
-	delete[] peerPublicDHKey;
-	if (peerPublicKey==NULL) {
-		std::cerr << "Error converting public key to EVP_PKEY" << std::endl;
-		EVP_PKEY_free(myPrivateKey);
-		return NULL;
-	}
-	size_t secretLength = -1;
-	unsigned char* Kab = GeneratePreSharedSecret(myPrivateKey, peerPublicKey, secretLength);
-	EVP_PKEY_free(peerPublicKey);
-	if (Kab == NULL) {
-		std::cerr << "Error generating preshared secret Kab" << std::endl;
-		return NULL;
-	}
-	std::cout << "ALL GOOD" << std::endl;
-	unsigned int keyLength = -1;
-	unsigned char* key = GenerateSessionKey(EVP_sha256(), EVP_aes_128_gcm(), Kab, secretLength, &keyLength);
-	delete[] Kab;
-	if (key == NULL) {
+
+	unsigned char* sessionKey = GetDefaultSessionKeyFromPeerPublicAndMyPrivate(myPrivateKey, peerPublicDHKey, serverDhPublicKeyLength);
+	if (sessionKey == NULL) {
 		std::cerr << "Error generating session key" << std::endl;
+		EVP_PKEY_free(myPrivateKey);
 		return NULL;
 	}
 
@@ -226,13 +210,14 @@ unsigned char* ThirdHandShakeMessageHandler(int sd,unsigned char* nonceS, std::s
 	EVP_PKEY_free(myPrivateKey);
 	if (clientDhPublicKey == NULL) {
 		std::cerr << "Error extracting public key" << std::endl;
+		delete[] sessionKey;
 		return NULL;
 	}
 
-	std::cout << clientDhPublicKey << std::endl;
-
 	if (SendMessage(sd, &clientDhPublicKeyLength, sizeof(uint32_t)) == FAIL || SendMessage(sd, clientDhPublicKey, clientDhPublicKeyLength) == FAIL) {
 		std::cerr << "Error sending DiffieHellman public key" << std::endl;
+		delete[] sessionKey;
+		delete[] clientDhPublicKey;
 		return NULL;
 	}
 
@@ -243,14 +228,7 @@ unsigned char* ThirdHandShakeMessageHandler(int sd,unsigned char* nonceS, std::s
 	memmove(msgToSign, nonceS, NONCE_LEN);
 	memmove(msgToSign + NONCE_LEN, clientDhPublicKey, clientDhPublicKeyLength);
 
-	std::cout << "==========================" <<std::endl;
-	std::cout << "Message to sign total length" << std::endl;
-	std::cout << msgToSignLength << std::endl;
-	std::cout << "==========================" <<std::endl;
-	std::cout << nonceS << std::endl;
-	std::cout << "==========================" <<std::endl;
-	std::cout << msgToSign << std::endl;
-	std::cout << "==========================" <<std::endl;
+	delete[] clientDhPublicKey;
 
 
 	/**********************************
@@ -267,28 +245,35 @@ unsigned char* ThirdHandShakeMessageHandler(int sd,unsigned char* nonceS, std::s
 
 	if (clientRSAPrivateKey == NULL) {
 		std::cerr << "Error loading client private key from disk" << std::endl;
+		delete[] sessionKey;
+		delete[] msgToSign;
 		return NULL;
 	}
 
 	uint32_t signatureLength = -1;
 	unsigned char* msgSigned = ComputeSign(EVP_sha256(), msgToSign, msgToSignLength, signatureLength, clientRSAPrivateKey);
+	delete[] msgToSign;
+	EVP_PKEY_free(clientRSAPrivateKey);
 
-	// std::cout<<msgToSign.c_str() << std::endl;
 	
 	if (SendMessage(sd, &signatureLength, sizeof(uint32_t)) == FAIL || SendMessage(sd, msgSigned, signatureLength) == FAIL) {
 		std::cerr << "Error sending signature " << std::endl;
-		EVP_PKEY_free(clientRSAPrivateKey);
+		delete[] sessionKey;
+		delete[] msgSigned;
 		return NULL;
 	}
+	delete[] msgSigned;
 
 	unsigned char* resultOfSignatureValidation = NULL;
 	if ( ReadMessage(sd, sizeof(HANDSHAKE_ERROR), &resultOfSignatureValidation) == FAIL || *resultOfSignatureValidation == *HANDSHAKE_ERROR) {
 		std::cerr << "Signature was not valid for the server" << std::endl;
-		EVP_PKEY_free(clientRSAPrivateKey);
+		delete[] sessionKey;
+		if (resultOfSignatureValidation!=NULL) delete[] resultOfSignatureValidation;
 		return NULL;
 	}
+	delete[] resultOfSignatureValidation;
 
-	return key;
+	return sessionKey;
 
 }
 
@@ -390,10 +375,12 @@ int main(int args_count, char *args[]) {
 
 
 	// HANDSHAKE
-	unsigned char* key = AuthenticateAndNegotiateKey(sd);
+	unsigned char* sessionKey = AuthenticateAndNegotiateKey(sd);
 
-	if (key==NULL) {
-		std::cerr << "Authentication is still not completed! :|" << std::endl;
+	if (sessionKey==NULL) {
+		std::cout << std::string("=====================================================") << std::endl;
+		std::cout << std::string("Last step of the handshake failed.. I'm sorry mate :(") << std::endl;
+		std::cout << std::string("=====================================================") << std::endl;
 		close(sd);
 	} else {
 
@@ -406,6 +393,8 @@ int main(int args_count, char *args[]) {
 		std::string handshakeSuccessFile = "login_success_art.txt";
 		std::cout<<ReadFile(handshakeSuccessFile) << std::endl;
 	}
+
+	delete[] sessionKey;
 
 
 	return 0;

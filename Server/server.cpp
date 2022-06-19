@@ -312,16 +312,23 @@ unsigned char* ThirdHandShakeMessageHandler(int sd, unsigned char* nonceS, std::
 	}
 
 	// Generate Kab and Key
+	
+	unsigned char* sessionKey = GetDefaultSessionKeyFromPeerPublicAndMyPrivate(myPrivateKey, clientDhPublicKey, *clientDhPublicKeyLength);
+	if (sessionKey == NULL) {
+		std::cerr << "Error generating session key" << std::endl;
+		EVP_PKEY_free(myPrivateKey);
+		return NULL;
+	}
+
 
 	delete[] clientDhPublicKeyLength;
-	delete[] clientDhPublicKey;
-	return NULL;
+	return sessionKey;
 
 }
 
 
 
-unsigned char* AuthenticateAndNegotiateKey(int sd) {
+unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 
 	/***********************
 	**GET USERNAME & NONCE**
@@ -331,7 +338,7 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	**READ CERTIFICATE FROM DISK & SEND IT**
 	****************************************/
 
-	std::string username = "Rintaro Okabe";
+	username = "";
 	unsigned char* nonceC = FirstHandShakeMessageHandler(sd, username);
 	if (nonceC==NULL) {
 		return NULL;
@@ -355,17 +362,8 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	
 	unsigned char* key = ThirdHandShakeMessageHandler(sd, nonceS, username, myPrivateKey);
 	delete[] nonceS;
-	if (key == NULL) {
-		std:: cout << "login failed" <<std::endl;
-	}
 
-	std::cout << std::string("=====================================================") << std::endl;
-	std::cout << std::string("3/3 HandShake messages are successful! Good job! :) ") << std::endl;
-	std::cout << std::string("=====================================================") << std::endl;
-
-	
-
-	return NULL;
+	return key;
 
 }
 
@@ -403,12 +401,21 @@ int main(int count, char *strings[])
 	int client = accept(server, (struct sockaddr*)&addr, &len);
 
 	printf("Connection: %s:%d\n",inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-
-	unsigned char* key = AuthenticateAndNegotiateKey(client);
+	std::string username = "";
+	unsigned char* sessionKey = AuthenticateAndNegotiateKey(client, username);
 	
-	if (key==NULL) {
-		std::cerr << "Authentication is still not completed! :|" << std::endl;
+	if (sessionKey==NULL) {
+		std::cout << std::string("=====================================================") << std::endl;
+		std::cout << std::string("Last step of the handshake failed.. I'm sorrry mate :( ") << std::endl;
+		std::cout << std::string("=====================================================") << std::endl;
+	}else {
+		printf("\033c"); // For Linux/Unix and maybe some others but not for Windows before 10 TH2 will reset terminal
+		std::cout << std::string("=====================================================") << std::endl;
+		std:: cout << "User: " << username << " just logged in! :)" << std::endl;
+		std::cout << std::string("=====================================================") << std::endl;
 	}
+
+	delete[] sessionKey;
 
 	close(client);
 	close(server);

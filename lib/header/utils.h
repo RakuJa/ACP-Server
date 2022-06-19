@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <malloc.h>
 #include <algorithm>
 #include <fstream>
 #include <openssl/err.h>

@@ -15,11 +15,9 @@
 unsigned char* GenerateSessionKey(const EVP_MD* hash_type, const EVP_CIPHER* cypher_type, unsigned char* input, size_t input_length, unsigned int* digest_length) {
     unsigned char* full_key = ComputeHash(hash_type, input, input_length, digest_length);
     if (*digest_length > (unsigned int) EVP_CIPHER_key_length(cypher_type)) {
-        unsigned char* truncated_key = (unsigned char*) malloc(EVP_CIPHER_key_length(cypher_type));
-        if (truncated_key != NULL) {
-            memcpy(truncated_key, full_key, EVP_CIPHER_key_length(cypher_type));
-        }
-        free(full_key);
+        unsigned char* truncated_key = new unsigned char [EVP_CIPHER_key_length(cypher_type)];
+        memcpy(truncated_key, full_key, EVP_CIPHER_key_length(cypher_type));
+        delete[]full_key;
         return truncated_key;
     }
     return full_key;
@@ -110,14 +108,19 @@ unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, uint32_
     
     unsigned char* result = ConvertPublicKeyToCharsBuffer(publicKeyPEM, bufferLength);
 
-    publicKey = PEM_read_PUBKEY(publicKeyPEM, NULL, NULL, NULL);
+    if (result != NULL) {
+        publicKey = PEM_read_PUBKEY(publicKeyPEM, NULL, NULL, NULL);
 
-    fclose(publicKeyPEM);
-    remove(fileName);
+        fclose(publicKeyPEM);
+        remove(fileName);
 
-    publicKeyLength = *bufferLength;
-    
-    return result;
+        publicKeyLength = int(*bufferLength);
+        delete[] bufferLength;
+        return result;
+    }
+    return NULL;
+
+
 }
 
 
@@ -166,16 +169,12 @@ unsigned char* ConvertPublicKeyToCharsBuffer(FILE* keyPEM, uint32_t* resultBuffe
     rewind(keyPEM);
 
     unsigned char* buffer = new unsigned char [resultBufferLengthSize];
-    if (buffer == NULL) {
-        std::cerr<<"Fatal error while reading the public key, malloc failed" << std::endl;
-        return NULL;
-    }
 
     // fread reads all the bytes if successful, so fread<fileLength only with an error
     if (fread(buffer, 1, resultBufferLengthSize, keyPEM) < resultBufferLengthSize) {//*resultBufferLength) {
         std::cerr<<"Error reading PEM file, runtime error." <<std::endl;
         fclose(keyPEM);
-        free(buffer);
+        delete[] buffer;
         return NULL;
     }
     
@@ -224,5 +223,36 @@ std::string FromPublicKeyFileNameToPath(std::string filename) {
     return clientKeysFolder + filename;
 }
 
+/**
+ * @brief Get the Session Key From PeerPublicKey And MyPrivateKey object, this default version uses EVP_sha256 and EVP_aes_128_gcm with session key = 128 bit = 16 byte
+ * 
+ * @param myPrivateKey 
+ * @param peerPublicDHKey 
+ * @param peerDhPublicKeyLength 
+ * @return unsigned* return session key, REMEMBER TO DELETE AFTER USING IT
+ */
+unsigned char* GetDefaultSessionKeyFromPeerPublicAndMyPrivate(EVP_PKEY* myPrivateKey, unsigned char* peerPublicDHKey, uint32_t& peerDhPublicKeyLength) {
 
-
+	std::string peerPublicKeyName = "peerPublicKey.pem";
+	EVP_PKEY* peerPublicKey = ConvertUnsignedCharToPublicDHKey(peerPublicKeyName, peerPublicDHKey, peerDhPublicKeyLength);
+	delete[] peerPublicDHKey;
+	if (peerPublicKey==NULL) {
+		std::cerr << "Error converting public key to EVP_PKEY" << std::endl;
+		return NULL;
+	}
+	size_t secretLength = 0;
+	unsigned char* Kab = GeneratePreSharedSecret(myPrivateKey, peerPublicKey, secretLength);
+	EVP_PKEY_free(peerPublicKey);
+	if (Kab == NULL) {
+		std::cerr << "Error generating preshared secret Kab" << std::endl;
+		return NULL;
+	}
+	unsigned int keyLength = 16;
+	unsigned char* sessionKey = GenerateSessionKey(EVP_sha256(), EVP_aes_128_gcm(), Kab, secretLength, &keyLength);
+	delete[] Kab;
+	if (sessionKey == NULL) {
+		std::cerr << "Error generating session key" << std::endl;
+		return NULL;
+	}
+    return sessionKey;
+}

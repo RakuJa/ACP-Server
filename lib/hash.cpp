@@ -4,33 +4,25 @@ unsigned char* ComputeHash(const EVP_MD* hash_type, unsigned char* input, size_t
     unsigned char* digest;
 
     // Buffer allocation for the digest
-    digest = (unsigned char*) malloc(EVP_MD_size(hash_type));
-
-    if (digest != NULL) {
-        // Context allocation 
-        EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
-
-        EVP_DigestInit(md_ctx, hash_type);
-        EVP_DigestUpdate(md_ctx, input, in_length);
-        EVP_DigestFinal(md_ctx, digest, digest_length);
-        EVP_MD_CTX_free(md_ctx);
-    }
+    digest = new unsigned char[EVP_MD_size(hash_type)];
+    // Context allocation 
+    EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
+    EVP_DigestInit(md_ctx, hash_type);
+    EVP_DigestUpdate(md_ctx, input, in_length);
+    EVP_DigestFinal(md_ctx, digest, digest_length);
+    EVP_MD_CTX_free(md_ctx);
     return digest;
 }
 
 unsigned char* ComputeSign(const EVP_MD* hash_type, const unsigned char* input, size_t in_length, u_int32_t& signature_length,  EVP_PKEY* key) {
 
-    unsigned char* signature;
-
     // Buffer allocation for the signature
-    signature = (unsigned char*) malloc(EVP_PKEY_size(key));
-    if (signature != NULL) {
-        EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
-        EVP_SignInit(md_ctx, hash_type);
-        EVP_SignUpdate(md_ctx, input, in_length);
-        EVP_SignFinal(md_ctx, signature, &signature_length, key);
-        EVP_MD_CTX_free(md_ctx);
-    }
+    unsigned char* signature = new unsigned char[EVP_PKEY_size(key)];
+    EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
+    EVP_SignInit(md_ctx, hash_type);
+    EVP_SignUpdate(md_ctx, input, in_length);
+    EVP_SignFinal(md_ctx, signature, &signature_length, key);
+    EVP_MD_CTX_free(md_ctx);
     return signature;
 }
 

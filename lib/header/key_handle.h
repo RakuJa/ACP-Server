@@ -2,7 +2,7 @@
 #include <string.h>
 #include <iostream>
 
-
+unsigned char* GetDefaultSessionKeyFromPeerPublicAndMyPrivate(EVP_PKEY* myPrivateKey, unsigned char* peerPublicDHKey, uint32_t& peerDhPublicKeyLength);
 
 unsigned char* GenerateSessionKey(const EVP_MD*, const EVP_CIPHER*, unsigned char*, size_t, unsigned int*);
 
@@ -19,3 +19,4 @@ EVP_PKEY* ReadRSAPrivateKey(const char*);
 std::string FromPublicKeyFileNameToPath(std::string);
 
 EVP_PKEY* ReadRSAPublicKey(const char*);
+
