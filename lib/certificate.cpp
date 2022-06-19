@@ -13,6 +13,7 @@ X509* ReadCertificate(const char* fileName, const unsigned char* buffer, uint32_
 
     X509* cert = PEM_read_X509(f_cert,NULL,NULL,NULL);
     fclose(f_cert);
+    remove(fileName);
     return cert;
 }
 

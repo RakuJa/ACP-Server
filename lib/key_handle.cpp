@@ -113,6 +113,7 @@ unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, uint32_
     publicKey = PEM_read_PUBKEY(publicKeyPEM, NULL, NULL, NULL);
 
     fclose(publicKeyPEM);
+    remove(fileName);
 
     publicKeyLength = *bufferLength;
     
@@ -122,7 +123,8 @@ unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, uint32_
 
 EVP_PKEY* ConvertUnsignedCharToPublicDHKey(std::string filename, unsigned char* key, uint32_t& key_length) {
 
-    FILE* pubkey_PEM = fopen(filename.c_str(),"w+");
+    const char* charFileName = filename.c_str();
+    FILE* pubkey_PEM = fopen(charFileName,"w+");
     if(!pubkey_PEM){
         std::cerr<<"Error opening disk file to write the key on" << std::endl;
         return NULL;
@@ -143,6 +145,7 @@ EVP_PKEY* ConvertUnsignedCharToPublicDHKey(std::string filename, unsigned char* 
         return NULL;
     }
     fclose(pubkey_PEM);
+    remove(charFileName);
     return received_pubkey;
 }
 

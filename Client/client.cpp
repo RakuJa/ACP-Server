@@ -196,7 +196,8 @@ unsigned char* ThirdHandShakeMessageHandler(int sd,unsigned char* nonceS, std::s
 		delete[] peerPublicDHKey;
 		return NULL;
 	}
-	EVP_PKEY* peerPublicKey = ConvertUnsignedCharToPublicDHKey(std::string("peerPublicKey.pem"), peerPublicDHKey, serverDhPublicKeyLength);
+	std::string peerPublicKeyName = "peerPublicKey.pem";
+	EVP_PKEY* peerPublicKey = ConvertUnsignedCharToPublicDHKey(peerPublicKeyName, peerPublicDHKey, serverDhPublicKeyLength);
 	delete[] peerPublicDHKey;
 	if (peerPublicKey==NULL) {
 		std::cerr << "Error converting public key to EVP_PKEY" << std::endl;
