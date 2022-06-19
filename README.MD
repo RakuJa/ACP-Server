@@ -100,7 +100,10 @@ xca
 Now you should have a good looking GUI ready to be used.
 
 * Create a xca db;
-* Create one private key for every user, one for the ROOT_CA and one for the Server (Remember to change keysize as needed);
+* You can create users private key with xca but it doesn't offer aes-128-cbc keys so I use two commands:
+- ```bash openssl genrsa -aes-128-cbc -out UserPriv.pem 3072 ```
+- ```bash openssl rsa -in UserPriv.pem -outform PEM -pubout -out UserPub.pem ```
+* Create one private key for the ROOT_CA and one for the Server (Remember to change keysize as needed);
 * Generate CA Root:
 - On Source select SHA 256 as Signature algorithm;
 - Populate Subject accordingly and choose the ROOT_CA private key;
@@ -135,6 +138,19 @@ g++ -Wall server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cp
 #### Client
 ```bash
 g++ client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp -o client -lcrypto
+```
+
+## Debug & Memory leaks
+
+For memory leaks detection I used valgrind, install it with:
+```bash
+sudo apt install valgrind
+```
+and execute it with:
+```bash
+g++ -Wall -ggdb3 server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp -o server -lcrypto
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt ./server 25567
+
 ```
 ## CI and Tests 🤖
 

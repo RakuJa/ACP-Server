@@ -31,19 +31,16 @@ unsigned char* GenerateSessionKey(const EVP_MD* hash_type, const EVP_CIPHER* cyp
  * @param my_prvkey Local private key
  * @param peer_pubkey Remote public key
  * @param secret_length length of secret
- * @return unsigned* values of Kab 
+ * @return unsigned* values of Kab, REMEMBER TO DELETE
  */
-unsigned char* GeneratePreSharedSecret(EVP_PKEY* my_prvkey, EVP_PKEY* peer_pubkey, size_t secret_length) {
+unsigned char* GeneratePreSharedSecret(EVP_PKEY* myPrivateKey, EVP_PKEY* peerPublicKey, size_t secret_length) {
     /* Initializing shared secret derivation context */
-    EVP_PKEY_CTX* ctx_drv = EVP_PKEY_CTX_new(my_prvkey, NULL);
+    EVP_PKEY_CTX* ctx_drv = EVP_PKEY_CTX_new(myPrivateKey, NULL);
     EVP_PKEY_derive_init(ctx_drv);
-    EVP_PKEY_derive_set_peer(ctx_drv, peer_pubkey);
+    EVP_PKEY_derive_set_peer(ctx_drv, peerPublicKey);
     EVP_PKEY_derive(ctx_drv, NULL, &secret_length);
-    unsigned char* secret = (unsigned char*)malloc(secret_length);
-    if (secret!=NULL) {
-        /* Deriving shared secret */
-        EVP_PKEY_derive(ctx_drv, secret, &secret_length);
-    }
+    unsigned char* secret = new unsigned char[secret_length];
+    EVP_PKEY_derive(ctx_drv, secret, &secret_length);
     EVP_PKEY_CTX_free(ctx_drv);
     return secret;
 }
@@ -95,7 +92,7 @@ unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, uint32_
 
     // Clean and initiate variables
     EVP_PKEY* publicKey = EVP_PKEY_new();
-     uint32_t* bufferLength = (uint32_t*) malloc(sizeof(u_int32_t));
+    uint32_t* bufferLength = new uint32_t[sizeof(u_int32_t)];
 
     // Convert from EVP_PKEY to PEM
     FILE* publicKeyPEM = fopen(fileName, "w+");
@@ -120,8 +117,38 @@ unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, uint32_
     publicKeyLength = *bufferLength;
     
     return result;
-
 }
+
+
+EVP_PKEY* ConvertUnsignedCharToPublicDHKey(std::string filename, unsigned char* key, uint32_t& key_length) {
+
+    FILE* pubkey_PEM = fopen(filename.c_str(),"w+");
+    if(!pubkey_PEM){
+        std::cout<<"Errore nell'apertura del file PEM\n";
+        return NULL;
+    }
+
+    std::cout << "file aperto";
+    
+    //scrivo la chiave pubblica ricevuta nel file PEM
+    uint32_t ret = fwrite(key,1,key_length,pubkey_PEM);
+    if(ret < key_length){
+        std::cout<<"Errore scrittura del file PEM\n";
+        fclose(pubkey_PEM);
+        return NULL;
+    }
+
+    fseek(pubkey_PEM,0,SEEK_SET);
+    EVP_PKEY* received_pubkey = PEM_read_PUBKEY(pubkey_PEM,NULL,NULL,NULL);
+    if(!received_pubkey){
+        std::cout<<"Errore nella lettura della chiave pubblica ricevuta\n";
+        fclose(pubkey_PEM);
+        return NULL;
+    }
+    fclose(pubkey_PEM);
+    return received_pubkey;
+}
+
 
 /**
  * @brief Converts PEM file to unsigned char*
@@ -138,7 +165,7 @@ unsigned char* ConvertPublicKeyToCharsBuffer(FILE* keyPEM, uint32_t* resultBuffe
     size_t resultBufferLengthSize = (size_t)* resultBufferLength; // UGh.. this name suck
     rewind(keyPEM);
 
-    unsigned char* buffer = (unsigned char*) malloc(resultBufferLengthSize);
+    unsigned char* buffer = new unsigned char [resultBufferLengthSize];
     if (buffer == NULL) {
         std::cerr<<"Fatal error while reading the public key, malloc failed" << std::endl;
         return NULL;
@@ -162,17 +189,39 @@ unsigned char* ConvertPublicKeyToCharsBuffer(FILE* keyPEM, uint32_t* resultBuffe
 /**
  * @brief loads private key from disk
  * 
- * @param filename filename where rsa private key is located
+ * @param filepath filepath where rsa private key is located, can be relative or absolute
  * @return EVP_PKEY* loaded private key
  */
-EVP_PKEY* ReadRSAPrivateKey(const char* filename){
-    FILE* file = fopen(filename,"r");
+EVP_PKEY* ReadRSAPrivateKey(const char* filepath){
+    FILE* file = fopen(filepath,"r");
     if(!file) {
         return NULL;
     }
     EVP_PKEY* key = PEM_read_PrivateKey(file,NULL,NULL,NULL);
     fclose(file);
     return key;
+}
+
+
+/**
+ * @brief loads public key from disk
+ * 
+ * @param filepath filepath where rsa public key is located, can be relative or absolute
+ * @return EVP_PKEY* loaded public key
+ */
+EVP_PKEY* ReadRSAPublicKey(const char* filepath) {
+    FILE* file = fopen(filepath, "r");
+    if (!file) {
+        return NULL;
+    }
+    EVP_PKEY* key = PEM_read_PUBKEY(file, NULL, NULL, NULL);
+    fclose(file);
+    return key;
+}
+
+std::string FromPublicKeyFileNameToPath(std::string filename) {
+    std::string clientKeysFolder = "ClientsPubKey/";
+    return clientKeysFolder + filename;
 }
 
 

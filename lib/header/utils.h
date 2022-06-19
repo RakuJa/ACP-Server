@@ -20,51 +20,54 @@
 #define USERNAME_MAX_LENGTH 17
 #define SERVER_CERT_NAME "ServerCert.pem"
 
+typedef std::basic_string<unsigned char> ustring;
+
 //SEND MESSAGE (PACCHETTI)
 
 /*
 Fetches the message to send from the given msg buffer and consumes until the given length, then sends to the given socket.
 */
-int SendMessage(int socket, const void* msg, int length) {
-    int result = 0;
+int SendMessage(int socket, const void* msg, u_int32_t length) {
+    u_int32_t result = 0;
+    int tmp = 0;
     do {
-        int tmp = send(socket, msg, length, 0);
+        tmp = send(socket, msg, length, 0);
         if (tmp==FAIL) {
             return tmp;
         }
         result += tmp;
     } while (result < length);
-    std::cout<<"Sent " << result << "bytes out of " << length << "\n";
+    std::cout<<"Sent " << result << " bytes out of " << length << "\n";
     return result;
 }
+
 
 /*
 Reads length bytes from the socket and returns them
 */
-unsigned char* ReadMessage(int socket, int length) {
-    int result = 0;
-    unsigned char* msg = (unsigned char*)malloc(length);
+template<class T>
+int ReadMessage(int socket, u_int32_t length, T** outBuffer) {
+    u_int32_t result = 0;
+    T* msg = new T[length];
 
-    if (msg==NULL) {
-        std::cerr << "Failed to allocate memory to read message" << std::endl;
-        return NULL;
-    }
-
+    int tmp = 0;
     do {
-        int tmp = recv(socket, msg, length, 0);
+        tmp = recv(socket, msg, length, 0);
         if (tmp == FAIL) {
-            free(msg);
-            return NULL;
+            delete[] msg;
+            return FAIL;
         }
         result +=tmp;
     } while (result < length);
-    std::cout<<"Received " << result << "bytes out of " << length << "\n";
-    return msg;
+    std::cout <<"Received " << result << " bytes out of " << length << "\n";
+    *outBuffer = msg;
+    return 1;
 
 }
 
+
 //GENERAZIONE NONCE/IV/RANDOM
-int RandomGenerator(unsigned char* &buf, int length) {
+int RandomGenerator(unsigned char* &buf,unsigned int length) {
     // Seed OpenSSL PRNG
     RAND_poll();
     // Generate length bytes at random
@@ -106,12 +109,4 @@ std::string ReadFile(const std::string &filename) {
     std::ifstream file(filename);
     std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     return content;
-}
-
-std::string ConvertFromUnsignedCharToString(const unsigned char* input, uint length) {
-    return std::string(reinterpret_cast<const char*>(input), length);
-}
-
-const char* ConvertFromUnsignedCharToSigned(const unsigned char* input) {
-    return reinterpret_cast<const char*>(input);
 }
