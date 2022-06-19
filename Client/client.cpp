@@ -313,6 +313,30 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 	
 }
 
+int SelectOperation() {
+	std::cin.ignore(INT_MAX);
+	uint userInput = 0;
+	std::cin>>userInput;
+	if (std::cin.fail() || userInput > 6) userInput = 0;
+
+	return userInput;
+}
+
+
+void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey) {
+	// Initialize messageCounter
+	uint32_t messageCounter = 0;
+
+	PrintListOfOperations();
+
+	uint32_t operationID = 0;
+	while (true) {
+		operationID = SelectOperation();
+		std::cout << operationID << std::endl;
+	}
+
+}
+
 
 int OpenConnection(const char *hostname, int port) {
 	int sd;
@@ -382,6 +406,7 @@ int main(int args_count, char *args[]) {
 		std::cout << std::string("Last step of the handshake failed.. I'm sorry mate :(") << std::endl;
 		std::cout << std::string("=====================================================") << std::endl;
 		close(sd);
+		return -1;
 	} else {
 
 		printf("\033c"); // For Linux/Unix and maybe some others but not for Windows before 10 TH2 will reset terminal
@@ -392,9 +417,15 @@ int main(int args_count, char *args[]) {
 
 		std::string handshakeSuccessFile = "login_success_art.txt";
 		std::cout<<ReadFile(handshakeSuccessFile) << std::endl;
+
+		std::cout << sessionKey << std::endl;
+
+		AuthenticatedUserMainLoop(sd, sessionKey);
+
+		delete[] sessionKey;
 	}
 
-	delete[] sessionKey;
+
 
 
 	return 0;

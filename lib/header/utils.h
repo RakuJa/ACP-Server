@@ -109,3 +109,17 @@ std::string ReadFile(const std::string &filename) {
     std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     return content;
 }
+
+
+void PrintListOfOperations() {
+    std::cout << "========================" << std::endl;
+    std::cout << "(0) Help" << std::endl;
+    std::cout << "(1) Upload" << std::endl;
+    std::cout << "(2) Download" << std::endl;
+    std::cout << "(3) Delete" << std::endl;
+    std::cout << "(4) List" << std::endl;
+    std::cout << "(5) Rename" << std::endl;
+    std::cout << "(6) Logout" << std::endl;
+    std::cout << "========================" << std::endl;
+    std::cout << std::endl << "Insert the corresponding number to execute the desired operation:" << std::endl;
+}

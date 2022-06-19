@@ -415,6 +415,8 @@ int main(int count, char *strings[])
 		std::cout << std::string("=====================================================") << std::endl;
 	}
 
+	std::cout << sessionKey << std::endl;
+
 	delete[] sessionKey;
 
 	close(client);
