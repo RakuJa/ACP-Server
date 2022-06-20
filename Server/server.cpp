@@ -402,11 +402,12 @@ int main(int count, char *strings[])
 
 	printf("Connection: %s:%d\n",inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
 	std::string username = "";
+
 	unsigned char* sessionKey = AuthenticateAndNegotiateKey(client, username);
 	
 	if (sessionKey==NULL) {
 		std::cout << std::string("=====================================================") << std::endl;
-		std::cout << std::string("Last step of the handshake failed.. I'm sorrry mate :( ") << std::endl;
+		std::cout << std::string("Last step of the handshake failed.. I'm sorry mate :(") << std::endl;
 		std::cout << std::string("=====================================================") << std::endl;
 	}else {
 		printf("\033c"); // For Linux/Unix and maybe some others but not for Windows before 10 TH2 will reset terminal

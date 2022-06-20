@@ -1,3 +1,6 @@
+#ifndef KEY_HANDLER_H
+#define KEY_HANDLER_H
+
 #include "hash.h"
 #include <string.h>
 #include <iostream>
@@ -20,3 +23,4 @@ std::string FromPublicKeyFileNameToPath(std::string);
 
 EVP_PKEY* ReadRSAPublicKey(const char*);
 
+#endif

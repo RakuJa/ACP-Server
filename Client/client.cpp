@@ -314,11 +314,20 @@ unsigned char* AuthenticateAndNegotiateKey(int sd) {
 }
 
 int SelectOperation() {
-	std::cin.ignore(INT_MAX);
-	uint userInput = 0;
-	std::cin>>userInput;
-	if (std::cin.fail() || userInput > 6) userInput = 0;
+	std::string inputLine = "0";
+	int userInput = 0;
 
+	if (!std::getline(std::cin, inputLine)) {
+		std::cerr << "Error reading input from keyboard.. " << std::endl;
+	}else {
+		try {
+			userInput = std::stoi(inputLine);
+		}catch (std::exception const & e) {
+			std::cerr<<" Error: while elaborating input, a valid input is a positive number!" << std::endl;
+		}
+	}
+
+	if (userInput > 6 || userInput < 0) userInput = 0;
 	return userInput;
 }
 

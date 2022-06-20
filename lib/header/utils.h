@@ -1,3 +1,6 @@
+#ifndef UTILS_H
+#define UTILS_H
+
 #include <sys/socket.h>
 #include <openssl/rand.h>
 #include <iostream>
@@ -11,15 +14,18 @@
 #include <openssl/err.h>
 
 #define FAIL    -1
-#define BUFFER  1024
-#define NONCE_LEN 16
+
 #define HANDSHAKE_ERROR "0"
 #define HANDSHAKE_ACK "1"
-#define DH_KEY_LENGTH 16
-#define USERNAME_MAX_LENGTH 17
+
 #define SERVER_CERT_NAME "ServerCert.pem"
 
-typedef std::basic_string<unsigned char> ustring;
+#define NONCE_LEN 16
+#define DH_KEY_LENGTH 16
+#define USERNAME_MAX_LENGTH 17
+#define IV_LENGTH 12
+#define AAD_LENGTH 28
+#define TAG_LENGTH 16
 
 //SEND MESSAGE (PACCHETTI)
 
@@ -46,6 +52,9 @@ Reads length bytes from the socket and returns them
 */
 template<class T>
 int ReadMessage(int socket, u_int32_t length, T** outBuffer) {
+
+    // READ CONTENT FROM SOCKET
+
     u_int32_t result = 0;
     T* msg = new T[length];
 
@@ -72,13 +81,6 @@ int RandomGenerator(unsigned char* &buf,unsigned int length) {
     // Generate length bytes at random
     return RAND_bytes(buf, length);
 } 
-
-
-//CRIPTAZIONE DEI PACCHETTI
-
-
-//DECRIPTAZIONE DEI PACCHETTI
-
 
 //CANONIZZAZIONE INPUT (USERNAME, FILEPATH, FILENAME ETC)
 
@@ -123,3 +125,7 @@ void PrintListOfOperations() {
     std::cout << "========================" << std::endl;
     std::cout << std::endl << "Insert the corresponding number to execute the desired operation:" << std::endl;
 }
+
+
+
+#endif
