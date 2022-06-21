@@ -12,20 +12,28 @@
 
 
 
-struct AAD  {
-    uint32_t operationId;
-    uint64_t messageCounter;
-    uint64_t payloadLength;
-    uint32_t optionalVariable;
 
-};
 
 
 
 class OperationPackage {
 
     private:
-        AAD aad;
+
+        struct AAD  {
+            uint32_t* operationId;
+            uint64_t* messageCounter;
+            uint64_t* payloadLength;
+            uint32_t* optionalVariable;
+
+            AAD();
+
+            ~AAD();
+
+        };
+
+        AAD* aad;
+        
         unsigned char* iv;
         unsigned char* payload;
         unsigned char* tag;
@@ -42,15 +50,21 @@ class OperationPackage {
 
         OperationPackage();
 
-        OperationPackage(AAD);
-
         ~OperationPackage();
 
-        int EncryptPlaintextWithGcm(unsigned char*, int, AAD*, unsigned char*);
+        int EncryptInit(uint32_t, uint64_t, uint32_t);
 
-        //int DecryptCyphertextWithGcm(unsigned char*, int, AAD*, unsigned char*);
+        int EncryptUpdate(unsigned char*, int, unsigned char*);
 
-        unsigned char* ExportUnsignedCharsAfterEncryption(int&);
+        unsigned char* EncryptFinalize(int&);
+
+        int ResetContext();
+
+        int DecryptInit(unsigned char*);
+
+        int DecryptUpdate(unsigned char*);
+
+        int DecryptFinalize(unsigned char*, unsigned char*);
 
 
 };

@@ -363,25 +363,60 @@ int UploadOperation(int sd, unsigned char* key, u_int32_t& messageCounter, std::
 	}
 	fclose(uploadFile);
 
-	AAD aad = AAD();
-	aad.messageCounter = messageCounter;
-	aad.operationId = OPERATION_ID_UPLOAD;
-	OperationPackage askToUpload = OperationPackage();
+	OperationPackage msgContext = OperationPackage();
 
-	if (askToUpload.EncryptPlaintextWithGcm((unsigned char*) inputFilename.c_str(), inputFilename.length(), &aad, key) == FAIL) {
+	if (msgContext.EncryptInit(OPERATION_ID_UPLOAD, messageCounter, 0) == FAIL) {
+		std::cerr << "Error preparing encrypt variables" << std::endl;
+		return FAIL;
+	}
+
+	if (msgContext.EncryptUpdate((unsigned char*) inputFilename.c_str(), inputFilename.length(), key) == FAIL) {
 		std::cerr << "Error encrypting plaintext" << std::endl;
 		return FAIL;
 	}
-	int msgToSendLength = FAIL;
-	unsigned char* msgToSend = askToUpload.ExportUnsignedCharsAfterEncryption(msgToSendLength);
-	if (msgToSend == NULL || msgToSendLength == FAIL) {
+	int authenticatedAndEncryptedMsgLength = FAIL;
+	unsigned char* authenticatedAndEncryptedMsg = msgContext.EncryptFinalize(authenticatedAndEncryptedMsgLength);
+	if (authenticatedAndEncryptedMsg == NULL || authenticatedAndEncryptedMsgLength == FAIL) {
 		std::cerr << "Error exporting after encryption" << std::endl;
 		return FAIL;
 	}
+	std::cout << authenticatedAndEncryptedMsgLength << std::endl;
+	std::cout << "==========ENCRYPTION RESULT=============" << std::endl;
+	unsigned char* receivedAAD = new unsigned char[AAD_LENGTH];
+	memmove(receivedAAD, authenticatedAndEncryptedMsg, AAD_LENGTH);
+
+	unsigned char* receivedMsg = new unsigned char[authenticatedAndEncryptedMsgLength - AAD_LENGTH];
+	memmove(receivedMsg, authenticatedAndEncryptedMsg + AAD_LENGTH, authenticatedAndEncryptedMsgLength - AAD_LENGTH);
+
+	msgContext.ResetContext();
+
+	unsigned char* decryptMsg = NULL;
+	
+	if (msgContext.DecryptInit(receivedAAD) == FAIL) {
+		std::cerr << "Error preparing decryption header" << std::endl;
+		return FAIL;
+	}
+
+	if (msgContext.DecryptUpdate(receivedMsg) == FAIL) {
+		std::cerr << "Error preparing cyphertext and tag for decryption" << std::endl;
+		return FAIL;
+	}
+
+	if (msgContext.DecryptFinalize(decryptMsg, key) == FAIL) {
+		std::cerr << "Error decrypting cyphertext" << std::endl;
+		return FAIL;
+	}
+
+	std:: cout << decryptMsg << std::endl;
+	/*
 	if (SendMessage(sd, msgToSend, msgToSendLength) == FAIL) {
 		std::cout << "Error sending message to server" << std::endl;
 		return FAIL;
 	}
+	*/
+	delete [] authenticatedAndEncryptedMsg;
+	delete [] receivedAAD;
+	delete [] decryptMsg;
 	messageCounter += messageCounter;
 	return 1;
 }

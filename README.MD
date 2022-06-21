@@ -148,8 +148,13 @@ sudo apt install valgrind
 ```
 and execute it with:
 ```bash
-g++ -Wall -ggdb3 server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp -o server -lcrypto
+g++ -Wall -ggdb3 server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp -o server -lcrypto
+g++ -Wall -ggdb3 client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp -o client -lcrypto
+
+
 valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt ./server 25567
+
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt ./client 127.0.0.1 25565
 
 ```
 ## CI and Tests 🤖
