@@ -11,6 +11,7 @@
 #include "../lib/header/hash.h"
 #include "../lib/header/certificate.h"
 #include "../lib/header/key_handle.h"
+#include "../lib/header/operation_package.h"
 
 
 /**
@@ -30,7 +31,7 @@ unsigned char* FirstHandShakeMessageHandler(int sd, std::string & username) {
 	do {
 		printf("Please insert a valid username (only alphanumeric character and length < %d : \n", USERNAME_MAX_LENGTH);
 		std::cin>>username;
-	} while (std::cin.fail() || ParseString(username) == FAIL);
+	} while (std::cin.fail() || ValidateString(username, USERNAME_MAX_LENGTH) == FAIL);
 
 	username.resize(USERNAME_MAX_LENGTH); // add padding to standardize username length and avoid sending a message with username size
 
@@ -277,9 +278,7 @@ unsigned char* ThirdHandShakeMessageHandler(int sd,unsigned char* nonceS, std::s
 
 }
 
-unsigned char* AuthenticateAndNegotiateKey(int sd) {
-	
-	std::string username = "Kurisu Makise";
+unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 
 	unsigned char* nonceC = FirstHandShakeMessageHandler(sd, username);
 
@@ -331,17 +330,139 @@ int SelectOperation() {
 	return userInput;
 }
 
+int UploadOperation(int sd, unsigned char* key, u_int32_t& messageCounter, std::string username) {
 
-void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey) {
+	std::cout << "Upload operation selected" << std::endl;
+	std::cout << "The file to upload MUST be in the logged user folder, it cannot be anywhere else in the disk" << std::endl;
+	std::cout << "Input the filename of the file including the extension: " << std::endl;
+
+	std::string inputFilename;
+	std::cin >> inputFilename;
+
+	if (ValidateString(inputFilename, FILENAME_LENGTH) == FAIL) {
+		std::cout << "Input filename is not valid " << std::endl;
+		return FAIL;	
+	}
+
+	username = RemoveCharacter(username, '\0');
+
+	std::string completeFilename = username + '/' + inputFilename;
+
+	FILE* uploadFile = fopen(completeFilename.c_str(), "r");
+	if (uploadFile == NULL) {
+		std::cout << "File not found" << std::endl;
+		return FAIL;
+	}
+
+	u_int32_t fileSize = GetFileSize(completeFilename);
+	std::cout << fileSize << std::endl;
+
+	if (fileSize == 0) {
+		std::cout << "Invalid file, too big or empty" << std::endl;
+		return FAIL;
+	}
+	fclose(uploadFile);
+
+	AAD aad = AAD();
+	aad.messageCounter = messageCounter;
+	aad.operationId = OPERATION_ID_UPLOAD;
+	OperationPackage askToUpload = OperationPackage();
+
+	if (askToUpload.EncryptPlaintextWithGcm((unsigned char*) inputFilename.c_str(), inputFilename.length(), &aad, key) == FAIL) {
+		std::cerr << "Error encrypting plaintext" << std::endl;
+		return FAIL;
+	}
+	int msgToSendLength = FAIL;
+	unsigned char* msgToSend = askToUpload.ExportUnsignedCharsAfterEncryption(msgToSendLength);
+	if (msgToSend == NULL || msgToSendLength == FAIL) {
+		std::cerr << "Error exporting after encryption" << std::endl;
+		return FAIL;
+	}
+	if (SendMessage(sd, msgToSend, msgToSendLength) == FAIL) {
+		std::cout << "Error sending message to server" << std::endl;
+		return FAIL;
+	}
+	messageCounter += messageCounter;
+	return 1;
+}
+
+int DownloadOperation(int sd, unsigned char* key, u_int32_t& messageCounter, std::string username) {
+	return FAIL;
+}
+
+int DeleteOperation(int sd, unsigned char* key, u_int32_t& messageCounter) {
+	return FAIL;
+}
+
+int ListOperation(int sd, unsigned char* key, u_int32_t& messageCounter) {
+	return FAIL;
+}
+
+int RenameOperation(int sd, unsigned char* key, u_int32_t& messageCounter) {
+	return FAIL;
+}
+
+int LogoutOperation(int sd, unsigned char* key, u_int32_t& messageCounter) {
+	return FAIL;
+}
+
+
+void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string username) {
 	// Initialize messageCounter
 	uint32_t messageCounter = 0;
 
-	PrintListOfOperations();
 
 	uint32_t operationID = 0;
 	while (true) {
 		operationID = SelectOperation();
-		std::cout << operationID << std::endl;
+		switch(operationID) {
+			case 1:
+				if (UploadOperation(sd, sessionKey, messageCounter, username) == FAIL) {
+					PrettyUpPrintToConsole("Upload operation failed");
+				} else {
+					PrettyUpPrintToConsole("Upload operation completed");
+				}
+				break;
+			case 2:
+				if (DownloadOperation(sd, sessionKey, messageCounter, username) == FAIL) {
+					PrettyUpPrintToConsole("Download operation failed");
+				} else {
+					PrettyUpPrintToConsole("Download operation completed");
+				}
+				break;
+			case 3:
+				if (DeleteOperation(sd, sessionKey, messageCounter) == FAIL) {
+					PrettyUpPrintToConsole("Delete operation failed");
+				} else {
+					PrettyUpPrintToConsole("Delete operation completed");
+				}
+				break;
+			case 4:
+				if (ListOperation(sd, sessionKey, messageCounter) == FAIL) {
+					PrettyUpPrintToConsole("List operation failed");
+				} else {
+					PrettyUpPrintToConsole("List operation completed");
+				}
+				break;
+			case 5:
+				if (RenameOperation(sd, sessionKey, messageCounter) == FAIL) {
+					PrettyUpPrintToConsole("Rename operation failed");
+				} else {
+					PrettyUpPrintToConsole("Rename operation completed");
+				}
+				break;
+			case 6:
+				if (LogoutOperation(sd, sessionKey, messageCounter) == FAIL) {
+					PrettyUpPrintToConsole("Logout operation failed");
+				} else {
+					PrettyUpPrintToConsole("Logout operation completed");
+				}
+				break;
+			default:
+				PrintListOfOperations();
+				break;
+		}
+
 	}
 
 }
@@ -408,11 +529,12 @@ int main(int args_count, char *args[]) {
 
 
 	// HANDSHAKE
-	unsigned char* sessionKey = AuthenticateAndNegotiateKey(sd);
+	std::string username = "Kurisu Makise";
+	unsigned char* sessionKey = AuthenticateAndNegotiateKey(sd, username);
 
 	if (sessionKey==NULL) {
 		std::cout << std::string("=====================================================") << std::endl;
-		std::cout << std::string("Last step of the handshake failed.. I'm sorry mate :(") << std::endl;
+		std::cout << std::string("Handshake aborted .. Retry later .. I'm sorry mate :(") << std::endl;
 		std::cout << std::string("=====================================================") << std::endl;
 		close(sd);
 		return -1;
@@ -429,7 +551,7 @@ int main(int args_count, char *args[]) {
 
 		std::cout << sessionKey << std::endl;
 
-		AuthenticatedUserMainLoop(sd, sessionKey);
+		AuthenticatedUserMainLoop(sd, sessionKey, username);
 
 		delete[] sessionKey;
 	}

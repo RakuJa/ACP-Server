@@ -45,3 +45,11 @@ int VerifySign(const EVP_MD* hashType, unsigned char* signedMsg, size_t signedMs
     EVP_MD_CTX_free(md_ctx);
     return result;
 }
+
+//GENERAZIONE NONCE/IV/RANDOM
+int RandomGenerator(unsigned char* &buf,unsigned int length) {
+    // Seed OpenSSL PRNG
+    RAND_poll();
+    // Generate length bytes at random
+    return RAND_bytes(buf, length);
+} 

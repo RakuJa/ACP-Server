@@ -2,32 +2,30 @@
 #define UTILS_H
 
 #include <sys/socket.h>
-#include <openssl/rand.h>
 #include <iostream>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
 #include <algorithm>
 #include <fstream>
 #include <openssl/err.h>
+#include <string>
+#include <vector>
+#include <sstream>
+#include "costants.h"
 
-#define FAIL    -1
-
-#define HANDSHAKE_ERROR "0"
-#define HANDSHAKE_ACK "1"
-
-#define SERVER_CERT_NAME "ServerCert.pem"
-
-#define NONCE_LEN 16
-#define DH_KEY_LENGTH 16
-#define USERNAME_MAX_LENGTH 17
-#define IV_LENGTH 12
-#define AAD_LENGTH 28
-#define TAG_LENGTH 16
-
-//SEND MESSAGE (PACCHETTI)
+/*********************************************************
+ *                                                       *
+ *  _  _   ___   _____ __   __ ____   ____   _  _        *
+ * ) \/ ( ) __( )__ __() (_) (/ __ \ /  _ \ ) |) /       *
+ * |  \ | | _)    | |  \  _  /))__(( )  ' / | ( (        *
+ * )_()_( )___(   )_(   )/ \( \____/ |_()_\ )_|)_\       *
+ *                                                       *
+ *                                                       *
+ * *******************************************************/
 
 /*
 Fetches the message to send from the given msg buffer and consumes until the given length, then sends to the given socket.
@@ -74,29 +72,12 @@ int ReadMessage(int socket, u_int32_t length, T** outBuffer) {
 }
 
 
-//GENERAZIONE NONCE/IV/RANDOM
-int RandomGenerator(unsigned char* &buf,unsigned int length) {
-    // Seed OpenSSL PRNG
-    RAND_poll();
-    // Generate length bytes at random
-    return RAND_bytes(buf, length);
-} 
+
+
+
+
 
 //CANONIZZAZIONE INPUT (USERNAME, FILEPATH, FILENAME ETC)
-
-
-/*
-Checks if the string is less than the maximum and if it does contain only alpha numeric.
-Returns -1 if the string is not valid
-*/
-int ParseString(std::string analyze_string) {
-    if (analyze_string.length() <= USERNAME_MAX_LENGTH) {
-        for (std::string::const_iterator s = analyze_string.begin(); s != analyze_string.end(); ++s)
-            if (!isalnum(*s)) return FAIL;
-        return 1;
-    }
-    return FAIL;
-}
 
 /*
 Removes all instances of the argument character from the argument string, then returns the modified string
@@ -105,6 +86,22 @@ std::string RemoveCharacter(std::string input, char character) {
     input.erase(std::remove(input.begin(), input.end(),character), input.end());
     return input;
 }
+
+/*
+Checks if the string is less than the maximum and if it does contain only alpha numeric.
+Returns -1 if the string is not valid
+*/
+int ValidateString(std::string stringToAnalyze, int maxStringLength) {
+    if (stringToAnalyze.length() <= USERNAME_MAX_LENGTH && !stringToAnalyze.empty()) {
+        for (std::string::const_iterator s = stringToAnalyze.begin(); s != stringToAnalyze.end(); ++s)
+            if (!isalnum(*s) && *s!='.') return FAIL;
+        
+        return (stringToAnalyze.at(0) != '.') == 0 ? FAIL : 1;
+    }
+    return FAIL;
+}
+
+
 
 std::string ReadFile(const std::string &filename) {
     std::ifstream file(filename);
@@ -124,6 +121,17 @@ void PrintListOfOperations() {
     std::cout << "(6) Logout" << std::endl;
     std::cout << "========================" << std::endl;
     std::cout << std::endl << "Insert the corresponding number to execute the desired operation:" << std::endl;
+}
+
+void PrettyUpPrintToConsole(std:: string output) {
+    std::cout << "========================" << std::endl;
+    std::cout << output << std::endl;
+    std::cout << "========================" << std::endl;
+}
+
+uint32_t GetFileSize(std::string filename) {
+    struct stat stat_buf;
+    return (stat(filename.c_str(), &stat_buf) == 0 && stat_buf.st_size < UINT32_MAX) ? stat_buf.st_size : 0;
 }
 
 

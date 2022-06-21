@@ -91,7 +91,7 @@ unsigned char* FirstHandShakeMessageHandler(int sd, std::string & sName) {
 
 	std::string clientListFile = "client_list.txt";
 
-	if (ParseString(sName) == FAIL || isUsernameRegistered(ReadFile(clientListFile).c_str(), sName) == FAIL) {
+	if (ValidateString(sName, USERNAME_MAX_LENGTH) == FAIL || isUsernameRegistered(ReadFile(clientListFile).c_str(), sName) == FAIL) {
 		std::cout<<"Error validating username: " << sName << std::endl;
 		SendMessage(sd, HANDSHAKE_ERROR, sizeof(HANDSHAKE_ERROR));
 		return NULL;
@@ -282,7 +282,8 @@ unsigned char* ThirdHandShakeMessageHandler(int sd, unsigned char* nonceS, std::
 
 	// Read Client public key
 
-	EVP_PKEY* clientRSAPubKey = ReadRSAPublicKey(FromPublicKeyFileNameToPath(username + ".pem").c_str());
+	std::string clientKeysFolder = "ClientsPubKey/";
+	EVP_PKEY* clientRSAPubKey = ReadRSAPublicKey((clientKeysFolder + username + ".pem").c_str());
 
 
 	// Sign (NONCE(S) + B)
@@ -345,7 +346,7 @@ unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 	}
 
 	std::cout << std::string("=====================================================") << std::endl;
-	std::cout << std::string("1/3 HandShake messages are successful! Keep it up :) ") << std::endl;
+	std::cout << std::string("Handshake aborted .. Retry later .. I'm sorry mate :(") << std::endl;
 	std::cout << std::string("=====================================================") << std::endl;
 
 	EVP_PKEY* myPrivateKey = NULL;
@@ -417,6 +418,9 @@ int main(int count, char *strings[])
 	}
 
 	std::cout << sessionKey << std::endl;
+	unsigned char* outBuf;
+	ReadMessage(client, 1, &outBuf);
+
 
 	delete[] sessionKey;
 

@@ -5,10 +5,14 @@
 #include <iostream>
 #include <openssl/err.h>
 #include <openssl/evp.h>
-#include "utils.h"
+#include <stdio.h>
+#include <string.h>
+#include "costants.h"
+#include "hash.h"
 
 
-typedef struct AAD  {
+
+struct AAD  {
     uint32_t operationId;
     uint64_t messageCounter;
     uint64_t payloadLength;
@@ -16,31 +20,37 @@ typedef struct AAD  {
 
 };
 
-unsigned char* convertAADtoUnsignedChars(AAD* aad);
+
 
 class OperationPackage {
 
     private:
-        AAD* aad;
+        AAD aad;
         unsigned char* iv;
         unsigned char* payload;
         unsigned char* tag;
 
-        void setAAD(AAD* aad);
+        unsigned char* charAAD;
 
-        int generateIv();
+        void setAAD(AAD aad);
 
-        void setPayload(unsigned char* givenPayload);
+        int GenerateIv();
 
-        void setTag(unsigned char* givenTag);
+        int UpdateCharAAD();
 
     public:
 
+        OperationPackage();
 
+        OperationPackage(AAD);
 
-        int EncryptPlaintextWithGcm(unsigned char* plaintext, int plaintextLength, AAD* givenAad, unsigned char* key);
+        ~OperationPackage();
 
-        int DecryptCyphertextWithGcm(unsigned char* cyphertext, int cyphertextLength, AAD* givenAad, unsigned char* key);
+        int EncryptPlaintextWithGcm(unsigned char*, int, AAD*, unsigned char*);
+
+        //int DecryptCyphertextWithGcm(unsigned char*, int, AAD*, unsigned char*);
+
+        unsigned char* ExportUnsignedCharsAfterEncryption(int&);
 
 
 };
