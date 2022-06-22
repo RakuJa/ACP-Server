@@ -376,6 +376,30 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 		return FAIL;
 	}
 	messageCounter += messageCounter;
+
+	unsigned char* outBuf = NULL;
+
+	uint64_t decryptedTextLength = 0;
+
+	uint32_t opIdRec = 0;
+	uint64_t messageCounterRec = 0;
+	uint64_t ciphertextLengthRec = 0;
+	uint32_t optVarRec = 0;
+	if (ReadOperationPackage(sd, key, opId, messageCounterRec, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1) {
+		std::cout << "Something went wrong receiving server ack" << std::endl;
+		return FAIL;
+	}
+
+	if (opIdRec != OPERATION_ID_ACK) {
+		std::cout << "Server refused upload operation" << std::endl;
+		return FAIL;
+	}
+
+	if (messageCounterRec != messageCounter) {
+		std::cout << "Server is out of sync" << std::endl;
+		//TODO: REMOVE KEY FROM MEMORY
+		abort();
+	}
 	
 	return 1;
 }
