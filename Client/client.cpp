@@ -330,7 +330,7 @@ int SelectOperation() {
 	return userInput;
 }
 
-int UploadOperation(int sd, unsigned char* key, u_int32_t& messageCounter, std::string username) {
+int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
 
 	std::cout << "Upload operation selected" << std::endl;
 	std::cout << "The file to upload MUST be in the logged user folder, it cannot be anywhere else in the disk" << std::endl;
@@ -363,88 +363,47 @@ int UploadOperation(int sd, unsigned char* key, u_int32_t& messageCounter, std::
 	}
 	fclose(uploadFile);
 
-	OperationPackage msgContext = OperationPackage();
 
-	if (msgContext.EncryptInit(OPERATION_ID_UPLOAD, messageCounter, 0) == FAIL) {
-		std::cerr << "Error preparing encrypt variables" << std::endl;
+	// PREPARE AND SEND ASK FOR UPLOAD
+	unsigned char *plaintext = (unsigned char *)inputFilename.c_str();
+	uint64_t payloadLength = strlen((char*) plaintext); // length = plaintext +1, in questo caso c'è il char di terminazione quindi plaintext
+	std::cout << payloadLength;
+	// Perchè? Perchè - inserisci spiegazione dei blocchi -
+	uint32_t opId = OPERATION_ID_UPLOAD;
+	uint32_t numberOfDataBlocks = GetNumberOfDataBlocks(fileSize);
+	if (SendOperationPackage(sd, opId, messageCounter, payloadLength, numberOfDataBlocks, plaintext, key) != 1) {
+		std::cout << "Something went wrong preparing or sending operation package.. " <<std::endl;
 		return FAIL;
 	}
-
-	if (msgContext.EncryptUpdate((unsigned char*) inputFilename.c_str(), inputFilename.length(), key) == FAIL) {
-		std::cerr << "Error encrypting plaintext" << std::endl;
-		return FAIL;
-	}
-	int authenticatedAndEncryptedMsgLength = FAIL;
-	unsigned char* authenticatedAndEncryptedMsg = msgContext.EncryptFinalize(authenticatedAndEncryptedMsgLength);
-	if (authenticatedAndEncryptedMsg == NULL || authenticatedAndEncryptedMsgLength == FAIL) {
-		std::cerr << "Error exporting after encryption" << std::endl;
-		return FAIL;
-	}
-	std::cout << authenticatedAndEncryptedMsgLength << std::endl;
-	std::cout << "==========ENCRYPTION RESULT=============" << std::endl;
-	unsigned char* receivedAAD = new unsigned char[AAD_LENGTH];
-	memmove(receivedAAD, authenticatedAndEncryptedMsg, AAD_LENGTH);
-
-	unsigned char* receivedMsg = new unsigned char[authenticatedAndEncryptedMsgLength - AAD_LENGTH];
-	memmove(receivedMsg, authenticatedAndEncryptedMsg + AAD_LENGTH, authenticatedAndEncryptedMsgLength - AAD_LENGTH);
-
-	msgContext.ResetContext();
-
-	unsigned char* decryptMsg = NULL;
-	
-	if (msgContext.DecryptInit(receivedAAD) == FAIL) {
-		std::cerr << "Error preparing decryption header" << std::endl;
-		return FAIL;
-	}
-
-	if (msgContext.DecryptUpdate(receivedMsg) == FAIL) {
-		std::cerr << "Error preparing cyphertext and tag for decryption" << std::endl;
-		return FAIL;
-	}
-
-	if (msgContext.DecryptFinalize(decryptMsg, key) == FAIL) {
-		std::cerr << "Error decrypting cyphertext" << std::endl;
-		return FAIL;
-	}
-
-	std:: cout << decryptMsg << std::endl;
-	/*
-	if (SendMessage(sd, msgToSend, msgToSendLength) == FAIL) {
-		std::cout << "Error sending message to server" << std::endl;
-		return FAIL;
-	}
-	*/
-	delete [] authenticatedAndEncryptedMsg;
-	delete [] receivedAAD;
-	delete [] decryptMsg;
 	messageCounter += messageCounter;
+	
 	return 1;
 }
 
-int DownloadOperation(int sd, unsigned char* key, u_int32_t& messageCounter, std::string username) {
+int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
 	return FAIL;
 }
 
-int DeleteOperation(int sd, unsigned char* key, u_int32_t& messageCounter) {
+int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 	return FAIL;
 }
 
-int ListOperation(int sd, unsigned char* key, u_int32_t& messageCounter) {
+int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 	return FAIL;
 }
 
-int RenameOperation(int sd, unsigned char* key, u_int32_t& messageCounter) {
+int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 	return FAIL;
 }
 
-int LogoutOperation(int sd, unsigned char* key, u_int32_t& messageCounter) {
+int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 	return FAIL;
 }
 
 
 void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string username) {
 	// Initialize messageCounter
-	uint32_t messageCounter = 0;
+	uint64_t messageCounter = 0;
 
 
 	uint32_t operationID = 0;
@@ -584,7 +543,7 @@ int main(int args_count, char *args[]) {
 		std::string handshakeSuccessFile = "login_success_art.txt";
 		std::cout<<ReadFile(handshakeSuccessFile) << std::endl;
 
-		std::cout << sessionKey << std::endl;
+		BIO_dump_fp (stdout, (const char *)sessionKey, 16);
 
 		AuthenticatedUserMainLoop(sd, sessionKey, username);
 

@@ -16,7 +16,7 @@ unsigned char* GenerateSessionKey(const EVP_MD* hash_type, const EVP_CIPHER* cyp
     unsigned char* full_key = ComputeHash(hash_type, input, input_length, digest_length);
     if (*digest_length > (unsigned int) EVP_CIPHER_key_length(cypher_type)) {
         unsigned char* truncated_key = new unsigned char [EVP_CIPHER_key_length(cypher_type)];
-        memcpy(truncated_key, full_key, EVP_CIPHER_key_length(cypher_type));
+        memmove(truncated_key, full_key, EVP_CIPHER_key_length(cypher_type));
         delete[]full_key;
         return truncated_key;
     }

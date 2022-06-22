@@ -15,7 +15,7 @@
 #define TAG_LENGTH 16
 #define AAD_LENGTH 24
 #define FILENAME_LENGTH 255
-#define PAYLOAD_BUFFER_LENGTH 256
+#define PAYLOAD_BUFFER_MAX_SIZE 256
 
 
 enum OperationIDs {

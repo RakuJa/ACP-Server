@@ -16,6 +16,7 @@
 #include <vector>
 #include <sstream>
 #include "costants.h"
+#include "operation_package.h"
 
 /*********************************************************
  *                                                       *
@@ -27,6 +28,7 @@
  *                                                       *
  * *******************************************************/
 
+
 /*
 Fetches the message to send from the given msg buffer and consumes until the given length, then sends to the given socket.
 */
@@ -36,7 +38,7 @@ int SendMessage(int socket, const void* msg, u_int32_t length) {
     do {
         tmp = send(socket, msg, length, 0);
         if (tmp==FAIL) {
-            return tmp;
+            return FAIL;
         }
         result += tmp;
     } while (result < length);
@@ -49,11 +51,11 @@ int SendMessage(int socket, const void* msg, u_int32_t length) {
 Reads length bytes from the socket and returns them
 */
 template<class T>
-int ReadMessage(int socket, u_int32_t length, T** outBuffer) {
+int ReadMessage(int socket, u_int64_t length, T** outBuffer) {
 
     // READ CONTENT FROM SOCKET
 
-    u_int32_t result = 0;
+    u_int64_t result = 0;
     T* msg = new T[length];
 
     int tmp = 0;
@@ -70,6 +72,153 @@ int ReadMessage(int socket, u_int32_t length, T** outBuffer) {
     return 1;
 
 }
+
+/**
+ * @brief Encrypts given plaintext with given key, authenticates aad(opId | msgCounter | payloadLength | optVar) and sends message to socket.
+ * 
+ * @param socket Socket to send the OperationPackage to
+ * @param opId creates and authenticates aad with this value inside 
+ * @param messageCounter creates and authenticates aad with this value inside 
+ * @param plaintextLength creates and authenticates aad with this value inside (also used to allocate memory, so be VERY carefull)
+ * @param optVar creates and authenticates aad with this value inside 
+ * @param plaintext encrypt this
+ * @param key used to encrypt plaintext
+ * @return int FAIL if something went wrong encrypting or sending the message
+ */
+int SendOperationPackage(int socket, u_int32_t opId, u_int64_t messageCounter, u_int64_t plaintextLength, u_int32_t optVar, unsigned char* plaintext, unsigned char* key){
+
+    unsigned char* aad = new unsigned char[AAD_LENGTH];
+
+    if (EncryptInit(aad, opId, messageCounter, plaintextLength, optVar) != 1) {
+        delete [] aad;
+    }
+
+	uint64_t ciphertext_len;
+	unsigned char* ciphertext = new unsigned char[plaintextLength];
+	unsigned char* tag = new unsigned char[TAG_LENGTH];
+	unsigned char *iv = new unsigned char[IV_LENGTH];
+
+	if (EncryptUpdate(plaintext, plaintextLength, aad, tag, iv, key, ciphertext, &ciphertext_len) != 1) {
+        delete [] aad;
+		delete [] ciphertext;
+		delete [] tag;
+		delete [] iv;
+		return FAIL;
+	}
+    int messageLength = ciphertext_len + AAD_LENGTH + IV_LENGTH + TAG_LENGTH;
+	unsigned char* messageToSend = new unsigned char[messageLength];
+
+	int encryptResult = EncryptFinal(messageToSend, aad, ciphertext, ciphertext_len, tag, iv);
+
+    std::cout << "=======================" << std::endl;
+    std::cout << "AAD" << std::endl;
+    BIO_dump_fp (stdout, (const char *)aad, AAD_LENGTH);
+    std::cout << "=======================" << std::endl;
+
+    std::cout << "=======================" << std::endl;
+    std::cout << "COMPLETE" << std::endl;
+    BIO_dump_fp (stdout, (const char *)messageToSend, messageLength);
+    std::cout << "=======================" << std::endl;
+
+    delete [] aad;
+	delete [] ciphertext;
+	delete [] tag;
+	delete [] iv;
+    if (encryptResult != 1) {
+        delete [] messageToSend;
+        return FAIL;
+    }
+    int resultSend = SendMessage(socket, messageToSend, messageLength);
+    delete [] messageToSend;
+    return resultSend == FAIL? FAIL : 1;
+}
+
+
+
+int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t& messageCounterRec, uint64_t& ciphertextLengthRec, uint32_t& optVarRec, uint64_t& decryptedTextLength, unsigned char* decryptedPayload) {
+    
+	decryptedTextLength = 0;
+
+	opIdRec = 0;
+	messageCounterRec = 0;
+	ciphertextLengthRec = 0;
+	optVarRec = 0;
+    
+    unsigned char* aad = NULL;
+
+    if (ReadMessage(sd, AAD_LENGTH, &aad) != 1) {
+        std::cout << "Error reading AAD" << std::endl;
+        return FAIL;
+    }
+
+    BIO_dump_fp (stdout, (const char *)aad, AAD_LENGTH);
+
+	if (DecryptInit(aad, opIdRec, messageCounterRec, ciphertextLengthRec, optVarRec) != 1) {
+        std::cout << "Failed decrypt init with received aad" << std::endl;
+        delete [] aad;
+        return FAIL;
+    }
+    
+    int messageLength = ciphertextLengthRec + IV_LENGTH + TAG_LENGTH;
+	unsigned char* messageReceived = new unsigned char[messageLength];
+
+    if (ReadMessage(sd, messageLength, &messageReceived) != 1) {
+        std::cout << "Failed read of ciphertext + tag + iv" << std::endl;
+        delete [] aad;
+        delete [] messageReceived;
+        return FAIL;
+    }
+
+    std::cout << "=======================" << std::endl;
+    std::cout << "AAD" << std::endl;
+    BIO_dump_fp (stdout, (const char *)aad, AAD_LENGTH);
+    std::cout << "=======================" << std::endl;
+
+    unsigned char* tmp = new unsigned char[AAD_LENGTH + messageLength];
+    memmove(tmp, aad, AAD_LENGTH);
+    memmove(tmp + AAD_LENGTH, messageReceived, messageLength);
+
+    std::cout << "=======================" << std::endl;
+    std::cout << "COMPLETE" << std::endl;
+    BIO_dump_fp (stdout, (const char *)tmp, messageLength + AAD_LENGTH);
+    std::cout << "=======================" << std::endl;
+
+    delete[] tmp;
+
+	
+
+	unsigned char* gotCiphertext = new unsigned char[ciphertextLengthRec];
+	unsigned char* gotTag = new unsigned char[TAG_LENGTH];
+	unsigned char* gotIv = new unsigned char[IV_LENGTH];
+
+	if (DecryptUpdate(messageReceived, gotCiphertext, ciphertextLengthRec, gotTag, gotIv) != 1) {
+        std::cout << "Failed decrypt update" << std::endl;
+        delete [] aad;
+        delete [] messageReceived;
+        delete [] gotCiphertext;
+        delete [] gotTag;
+        delete [] gotIv;
+        return FAIL;
+    }
+
+    decryptedPayload = new unsigned char[ciphertextLengthRec+1];
+	int resultOfOp = DecryptFinal(gotCiphertext, ciphertextLengthRec, aad, gotTag, gotIv, key, decryptedPayload, &decryptedTextLength);
+    std::cout << decryptedPayload << std::endl;
+    if (resultOfOp == FAIL) {
+        delete[] decryptedPayload;
+    }else {
+        decryptedTextLength = resultOfOp;
+    }
+    delete [] aad;
+    delete [] messageReceived;
+    delete [] gotCiphertext;
+    delete [] gotTag;
+    delete [] gotIv;
+
+    return resultOfOp;
+
+}
+
 
 
 
@@ -135,5 +284,9 @@ uint32_t GetFileSize(std::string filename) {
 }
 
 
+
+uint32_t GetNumberOfDataBlocks(uint64_t fileSize){
+    return fileSize/PAYLOAD_BUFFER_MAX_SIZE + (fileSize % PAYLOAD_BUFFER_MAX_SIZE != 0);
+}
 
 #endif
