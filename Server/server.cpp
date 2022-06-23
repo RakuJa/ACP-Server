@@ -368,6 +368,148 @@ unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint64_t& filenameLength, uint32_t numberOfDataBlocks, unsigned char* filename, std::string username) {
+	char* inputFilename = (char*) filename;
+	if (ValidateString(inputFilename, FILENAME_LENGTH) != 1) {
+		std::cout << "Invalid filename" << std::endl;
+	}
+	username = RemoveCharacter(username, '\0');
+	std::string completeFilename = username + '/' + inputFilename;
+
+	if (CheckFileExistance(completeFilename) != FAIL) {
+		std::cout << "File already exists" << std::endl;
+	}
+
+}
+
+int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
+	return FAIL;
+}
+
+int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
+	return FAIL;
+}
+
+int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
+	return FAIL;
+}
+
+int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
+	return FAIL;
+}
+
+int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
+	return FAIL;
+}
+
+
+
+void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string username) {
+	// Initialize messageCounter
+	uint64_t messageCounter = 0;
+	while (true) {
+
+		unsigned char* decryptedPayload = NULL;
+
+		uint64_t decryptedPayloadLength = 0;
+
+		uint32_t opIdRec = 0;
+		uint64_t messageCounterRec = 0;
+		uint64_t ciphertextLengthRec = 0;
+		uint32_t optVarRec = 0;
+		if (ReadOperationPackage(sd, sessionKey, opIdRec, messageCounterRec, ciphertextLengthRec, optVarRec, decryptedPayloadLength, decryptedPayload) != 1) {
+			std::cout << "Error reading client request, abort connection.." << std::endl;
+			break;
+		}
+
+		if (opIdRec > 6 || opIdRec < 1) {
+			std::cout<< "Client sent an invalid operation id, abort connection.. " << std::endl;
+			break;
+		}
+
+		if (messageCounter != messageCounterRec) {
+			std::cout << "Client sent an invalid message counter, abort connection.." << std::endl;
+			break;
+		}
+		messageCounter +=1;
+
+		switch(opIdRec) {
+			case 1:
+				if (UploadOperation(sd, sessionKey, messageCounter, decryptedPayloadLength, optVarRec, decryptedPayload, username) == FAIL) {
+					PrettyUpPrintToConsole("Upload operation failed");
+				} else {
+					PrettyUpPrintToConsole("Upload operation completed");
+				}
+				break;
+			case 2:
+				if (DownloadOperation(sd, sessionKey, messageCounter, username) == FAIL) {
+					PrettyUpPrintToConsole("Download operation failed");
+				} else {
+					PrettyUpPrintToConsole("Download operation completed");
+				}
+				break;
+			case 3:
+				if (DeleteOperation(sd, sessionKey, messageCounter, username) == FAIL) {
+					PrettyUpPrintToConsole("Delete operation failed");
+				} else {
+					PrettyUpPrintToConsole("Delete operation completed");
+				}
+				break;
+			case 4:
+				if (ListOperation(sd, sessionKey, messageCounter, username) == FAIL) {
+					PrettyUpPrintToConsole("List operation failed");
+				} else {
+					PrettyUpPrintToConsole("List operation completed");
+				}
+				break;
+			case 5:
+				if (RenameOperation(sd, sessionKey, messageCounter, username) == FAIL) {
+					PrettyUpPrintToConsole("Rename operation failed");
+				} else {
+					PrettyUpPrintToConsole("Rename operation completed");
+				}
+				break;
+			case 6:
+				if (LogoutOperation(sd, sessionKey, messageCounter) == FAIL) {
+					PrettyUpPrintToConsole("Logout operation failed");
+				} else {
+					PrettyUpPrintToConsole("Logout operation completed");
+				}
+				break;
+		}
+		delete[] outBuf;
+
+	}
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 int main(int count, char *strings[])
 {
 	int server;
@@ -415,11 +557,10 @@ int main(int count, char *strings[])
 		std::cout << std::string("=====================================================") << std::endl;
 		std:: cout << "User: " << username << " just logged in! :)" << std::endl;
 		std::cout << std::string("=====================================================") << std::endl;
+		
 	}
-
-	std::cout << sessionKey << std::endl;
-	unsigned char* outBuf;
-	ReadMessage(client, 1, &outBuf);
+	BIO_dump_fp (stdout, (const char *)sessionKey, 16);
+	
 
 
 	delete[] sessionKey;

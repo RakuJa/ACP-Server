@@ -278,6 +278,17 @@ void PrettyUpPrintToConsole(std:: string output) {
     std::cout << "========================" << std::endl;
 }
 
+
+int CheckFileExistance(std::string filename) {
+	FILE* fileToCheck = fopen(filename.c_str(), "r");
+	if (fileToCheck == NULL) {
+		std::cout << "File not found" << std::endl;
+		return FAIL;
+	}
+    fclose(fileToCheck);
+    return 1;
+}
+
 uint32_t GetFileSize(std::string filename) {
     struct stat stat_buf;
     return (stat(filename.c_str(), &stat_buf) == 0 && stat_buf.st_size < UINT32_MAX) ? stat_buf.st_size : 0;
