@@ -244,8 +244,9 @@ unsigned char* ThirdHandShakeMessageHandler(int sd,unsigned char* nonceS, std::s
 	std::string clientPrivateRSAKeyFile = username + std::string("/") + username + std::string(".pem");
 	EVP_PKEY* clientRSAPrivateKey = ReadRSAPrivateKey(clientPrivateRSAKeyFile.c_str());
 
-	if (clientRSAPrivateKey == NULL) {
+	if (clientRSAPrivateKey == NULL || SendMessage(sd, HANDSHAKE_ACK, sizeof(HANDSHAKE_ACK)) == FAIL) {
 		std::cerr << "Error loading client private key from disk" << std::endl;
+		SendMessage(sd, HANDSHAKE_ERROR, sizeof(HANDSHAKE_ERROR));
 		delete[] sessionKey;
 		delete[] msgToSign;
 		return NULL;

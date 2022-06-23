@@ -133,6 +133,15 @@ int SendOperationPackage(int socket, u_int32_t opId, u_int64_t messageCounter, u
     return resultSend == FAIL? FAIL : 1;
 }
 
+int SendStatusPackage(int sd, unsigned char* key, uint32_t opId, uint64_t messageCounter) {
+    // PREPARE AND SEND ASK FOR UPLOAD
+	std::string padding = "0";
+	unsigned char *plaintext = (unsigned char *)padding.c_str();
+	uint64_t payloadLength = strlen((char*) plaintext); // length = plaintext +1, in questo caso c'è il char di terminazione quindi plaintext
+	// Perchè? Perchè - inserisci spiegazione dei blocchi -
+    return SendOperationPackage(sd, opId, messageCounter, payloadLength, 0, plaintext, key);
+}
+
 
 
 int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t& messageCounterRec, uint64_t& ciphertextLengthRec, uint32_t& optVarRec, uint64_t& decryptedTextLength, unsigned char* decryptedPayload) {
@@ -298,6 +307,12 @@ uint32_t GetFileSize(std::string filename) {
 
 uint32_t GetNumberOfDataBlocks(uint64_t fileSize){
     return fileSize/PAYLOAD_BUFFER_MAX_SIZE + (fileSize % PAYLOAD_BUFFER_MAX_SIZE != 0);
+}
+
+int ClearBufferArea(void* buff, int buffLength) {
+    memset(buff, 0, buffLength);
+    delete[] buff;
+    return 1;
 }
 
 #endif

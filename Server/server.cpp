@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <resolv.h>
 #include "openssl/ssl.h"
 #include "openssl/err.h"
@@ -260,6 +261,14 @@ unsigned char* ThirdHandShakeMessageHandler(int sd, unsigned char* nonceS, std::
 		return NULL;
 	}
 
+	// CHECK IF CLIENT DID LOAD CORRECTLY KEY FROM DISK
+	unsigned char* resultOfClientLoadKey = NULL;
+	if (ReadMessage(sd, sizeof(HANDSHAKE_ERROR), &resultOfClientLoadKey) == FAIL || *resultOfClientLoadKey == *HANDSHAKE_ERROR) {
+		std::cerr << "Client failed to load private key" << std::endl;
+		delete[] clientDhPublicKeyLength;
+		return NULL;
+	}
+
 	// READ SIGNATURE
 
 	u_int32_t* clientSignLength = NULL;
@@ -384,15 +393,25 @@ unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 
 
 int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint64_t& filenameLength, uint32_t numberOfDataBlocks, unsigned char* filename, std::string username) {
+
 	char* inputFilename = (char*) filename;
 	if (ValidateString(inputFilename, FILENAME_LENGTH) != 1) {
-		std::cout << "Invalid filename" << std::endl;
+		std::cout << "Invalid filename, abort connection (modified client)" << std::endl;
+		ClearBufferArea(key, DH_KEY_LENGTH);
+		delete[] filename;
+		abort();
 	}
 	username = RemoveCharacter(username, '\0');
 	std::string completeFilename = username + '/' + inputFilename;
 
 	if (CheckFileExistance(completeFilename) != FAIL) {
 		std::cout << "File already exists" << std::endl;
+		if (SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter) != 1) {
+			std::cout << "Error sending abort message, closing connection .." << std::endl;
+			ClearBufferArea(key, DH_KEY_LENGTH);
+			delete[] filename;
+			abort();
+		}
 	}
 
 }
@@ -419,31 +438,42 @@ int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 
 
 
-void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string username) {
+void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, std::string username) {
 	// Initialize messageCounter
 	uint64_t messageCounter = 0;
+
+	unsigned char* decryptedPayload = NULL;
+
+	uint64_t decryptedPayloadLength = 0;
+
+	uint32_t opIdRec = 0;
+	uint64_t messageCounterRec = 0;
+	uint64_t ciphertextLengthRec = 0;
+	uint32_t optVarRec = 0;
 	while (true) {
 
-		unsigned char* decryptedPayload = NULL;
+		decryptedPayload = NULL;
+		decryptedPayloadLength = 0;
+		opIdRec = 0;
+		messageCounterRec = 0;
+		ciphertextLengthRec = 0;
+		optVarRec = 0;
 
-		uint64_t decryptedPayloadLength = 0;
-
-		uint32_t opIdRec = 0;
-		uint64_t messageCounterRec = 0;
-		uint64_t ciphertextLengthRec = 0;
-		uint32_t optVarRec = 0;
 		if (ReadOperationPackage(sd, sessionKey, opIdRec, messageCounterRec, ciphertextLengthRec, optVarRec, decryptedPayloadLength, decryptedPayload) != 1) {
 			std::cout << "Error reading client request, abort connection.." << std::endl;
+			delete[] decryptedPayload;
 			break;
 		}
 
 		if (opIdRec > 6 || opIdRec < 1) {
 			std::cout<< "Client sent an invalid operation id, abort connection.. " << std::endl;
+			delete[] decryptedPayload;
 			break;
 		}
 
 		if (messageCounter != messageCounterRec) {
 			std::cout << "Client sent an invalid message counter, abort connection.." << std::endl;
+			delete[] decryptedPayload;
 			break;
 		}
 		messageCounter +=1;
@@ -492,7 +522,7 @@ void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string us
 				}
 				break;
 		}
-		delete[] outBuf;
+		delete[] decryptedPayload;
 
 	}
 
@@ -504,7 +534,30 @@ void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string us
 
 
 
+void* ConnectionHandler(void* socket) {
 
+
+	std::string username = "";
+	int sd = *((int*)socket);
+
+	unsigned char* sessionKey = AuthenticateAndNegotiateKey(sd, username);
+	
+	if (sessionKey==NULL) {
+		std::cout << std::string("=====================================================") << std::endl;
+		std::cout << std::string("Last step of the handshake failed.. I'm sorry mate :(") << std::endl;
+		std::cout << std::string("=====================================================") << std::endl;
+	}else {
+		printf("\033c"); // For Linux/Unix and maybe some others but not for Windows before 10 TH2 will reset terminal
+		std::cout << std::string("=====================================================") << std::endl;
+		std:: cout << "User: " << username << " just logged in! :)" << std::endl;
+		std::cout << std::string("=====================================================") << std::endl;
+		BIO_dump_fp (stdout, (const char *)sessionKey, 16);
+		AuthenticatedUserServerHandlerMainLoop(sd, sessionKey, username);
+		ClearBufferArea(sessionKey, DH_KEY_LENGTH); 
+	}
+	
+	
+}
 
 
 
@@ -513,7 +566,8 @@ void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string us
 int main(int count, char *strings[])
 {
 	int server;
-	int portnum;
+	int portnum = 0;
+	pthread_t thread_id;
 
 	if ( count != 2 )
 	{
@@ -539,33 +593,23 @@ int main(int count, char *strings[])
 	std::string welcomeFile = "start_server_art.txt";
 	std::cout<<ReadFile(welcomeFile) << std::endl;
 
-	listen(server,5);
+	while(1) {
 
-	int client = accept(server, (struct sockaddr*)&addr, &len);
+		listen(server,5);
 
-	printf("Connection: %s:%d\n",inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-	std::string username = "";
+		int client = accept(server, (struct sockaddr*)&addr, &len);
 
-	unsigned char* sessionKey = AuthenticateAndNegotiateKey(client, username);
-	
-	if (sessionKey==NULL) {
-		std::cout << std::string("=====================================================") << std::endl;
-		std::cout << std::string("Last step of the handshake failed.. I'm sorry mate :(") << std::endl;
-		std::cout << std::string("=====================================================") << std::endl;
-	}else {
-		printf("\033c"); // For Linux/Unix and maybe some others but not for Windows before 10 TH2 will reset terminal
-		std::cout << std::string("=====================================================") << std::endl;
-		std:: cout << "User: " << username << " just logged in! :)" << std::endl;
-		std::cout << std::string("=====================================================") << std::endl;
-		
+		printf("Connection: %s:%d\n",inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+
+		if (pthread_create(&thread_id, NULL, ConnectionHandler, (void*)&client)) {
+			std::cout << "Error starting connection handler thread... did you compile with the right flag?" << std::endl;
+			close(client);
+		}else {
+			pthread_detach(thread_id);
+		}
+
 	}
-	BIO_dump_fp (stdout, (const char *)sessionKey, 16);
 	
-
-
-	delete[] sessionKey;
-
-	close(client);
 	close(server);
 
 	return 0;
