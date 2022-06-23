@@ -376,7 +376,7 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 		std::cout << "Something went wrong preparing or sending operation package.. " <<std::endl;
 		return FAIL;
 	}
-	messageCounter += messageCounter;
+	messageCounter += 1;
 
 	unsigned char* outBuf = NULL;
 
@@ -398,9 +398,11 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 
 	if (messageCounterRec != messageCounter) {
 		std::cout << "Server is out of sync" << std::endl;
-		//TODO: REMOVE KEY FROM MEMORY
+		ClearBufferArea(key, DH_KEY_LENGTH);
 		abort();
 	}
+
+	std::cout << "Server wants it!!!" << std::endl;
 	
 	return 1;
 }

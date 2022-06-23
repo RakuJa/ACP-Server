@@ -412,7 +412,14 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint6
 			delete[] filename;
 			abort();
 		}
+		return FAIL;
 	}
+	std::cout << "Message counter before ack:" << messageCounter << std::endl;
+	if (SendStatusPackage(sd, key, OPERATION_ID_ACK, messageCounter) != 1) {
+		std::cout << "Failed at sending ack package" << std::endl;
+	}
+
+	return 1;
 
 }
 
@@ -555,7 +562,7 @@ void* ConnectionHandler(void* socket) {
 		AuthenticatedUserServerHandlerMainLoop(sd, sessionKey, username);
 		ClearBufferArea(sessionKey, DH_KEY_LENGTH); 
 	}
-	
+	return NULL;
 	
 }
 

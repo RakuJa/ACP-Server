@@ -144,7 +144,7 @@ int SendStatusPackage(int sd, unsigned char* key, uint32_t opId, uint64_t messag
 
 
 
-int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t& messageCounterRec, uint64_t& ciphertextLengthRec, uint32_t& optVarRec, uint64_t& decryptedTextLength, unsigned char* decryptedPayload) {
+int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t& messageCounterRec, uint64_t& ciphertextLengthRec, uint32_t& optVarRec, uint64_t& decryptedTextLength, unsigned char*& decryptedPayload) {
     
 	decryptedTextLength = 0;
 
@@ -309,7 +309,7 @@ uint32_t GetNumberOfDataBlocks(uint64_t fileSize){
     return fileSize/PAYLOAD_BUFFER_MAX_SIZE + (fileSize % PAYLOAD_BUFFER_MAX_SIZE != 0);
 }
 
-int ClearBufferArea(void* buff, int buffLength) {
+int ClearBufferArea(unsigned char* buff, int buffLength) {
     memset(buff, 0, buffLength);
     delete[] buff;
     return 1;
