@@ -148,22 +148,25 @@ int ReadMessage(int socket, u_int64_t length, T** outBuffer) {
 
     // READ CONTENT FROM SOCKET
 
-    u_int64_t result = 0;
+    // u_int64_t result = 0;
     T* msg = new T[length];
+    T* tempPointer = msg;
 
     int tmp = 0;
     do {
-        tmp = recv(socket, msg, length, 0);
+        tmp = recv(socket, tempPointer, length, 0);
         if (tmp == FAIL) {
             delete[] msg;
             return FAIL;
         }
-        result +=tmp;
-    } while (result < length);
+        length -=tmp;
+        tempPointer +=tmp;
+        tmp = 0;
+    } while (length > 0);
     // std::cout <<"Received " << result << " bytes out of " << length << "\n";
     *outBuffer = msg;
     return 1;
-
+    
 }
 
 /**
@@ -198,6 +201,7 @@ int SendOperationPackage(int socket, u_int32_t opId, u_int64_t& messageCounter, 
 		delete [] iv;
 		return FAIL;
 	}
+
     int messageLength = ciphertext_len + AAD_LENGTH + IV_LENGTH + TAG_LENGTH;
 	unsigned char* messageToSend = new unsigned char[messageLength];
 
@@ -223,12 +227,14 @@ int SendOperationPackage(int socket, u_int32_t opId, u_int64_t& messageCounter, 
     
 
 int SendStatusPackage(int sd, unsigned char* key, uint32_t opId, uint64_t& messageCounter) {
+
     // PREPARE AND SEND ASK FOR UPLOAD
 	std::string padding = "0";
 	unsigned char *plaintext = (unsigned char *)padding.c_str();
 	uint64_t payloadLength = strlen((char*) plaintext); // length = plaintext +1, in questo caso c'è il char di terminazione quindi plaintext
 	// Perchè? Perchè - inserisci spiegazione dei blocchi -
     return SendOperationPackage(sd, opId, messageCounter, payloadLength, 0, plaintext, key);
+
 }
 
 
@@ -365,16 +371,16 @@ int ReadFileInOperationPackage(int sd, std::string fileName, uint32_t numberOfDa
 
     FILE* file = fopen(fileName.c_str(),"w+");
     if(!file) {
-        std::cout<<"Errore nell'apertura del file in scrittura\n";
-        return false;
+        std::cerr<<"Errore nell'apertura del file in scrittura\n";
+        return FAIL;
     }
     unsigned char* plaintext = NULL;
     for(uint32_t i = 0; i < numberOfDataBlocks; i++){
         if(ReadOperationPackage(sd, key, opIdRec, messageCounterRec, msgCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, plaintext) != 1){
-            std::cout<<"Error reading data packet" << std::endl;
+            std::cerr<<"Error reading data packet" << std::endl;
             fclose(file);
             remove(fileName.c_str());
-            return false;
+            return FAIL;
         }
         fwrite(plaintext,1,decryptedTextLength,file);
         if (echoOn > 0) {
