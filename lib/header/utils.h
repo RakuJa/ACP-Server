@@ -17,6 +17,7 @@
 #include <sstream>
 #include "costants.h"
 #include "operation_package.h"
+#include <stdexcept>
 
 
 
@@ -134,7 +135,7 @@ int SendMessage(int socket, const void* msg, u_int32_t length) {
         }
         result += tmp;
     } while (result < length);
-    std::cout<<"Sent " << result << " bytes out of " << length << "\n";
+    // std::cout<<"Sent " << result << " bytes out of " << length << "\n";
     return result;
 }
 
@@ -159,7 +160,7 @@ int ReadMessage(int socket, u_int64_t length, T** outBuffer) {
         }
         result +=tmp;
     } while (result < length);
-    std::cout <<"Received " << result << " bytes out of " << length << "\n";
+    // std::cout <<"Received " << result << " bytes out of " << length << "\n";
     *outBuffer = msg;
     return 1;
 
@@ -177,8 +178,8 @@ int ReadMessage(int socket, u_int64_t length, T** outBuffer) {
  * @param key used to encrypt plaintext
  * @return int FAIL if something went wrong encrypting or sending the message
  */
-int SendOperationPackage(int socket, u_int32_t opId, u_int64_t messageCounter, u_int64_t plaintextLength, u_int32_t optVar, unsigned char* plaintext, unsigned char* key){
-
+int SendOperationPackage(int socket, u_int32_t opId, u_int64_t& messageCounter, u_int64_t plaintextLength, u_int32_t optVar, unsigned char* plaintext, unsigned char* key){
+    
     unsigned char* aad = new unsigned char[AAD_LENGTH];
 
     if (EncryptInit(aad, opId, messageCounter, plaintextLength, optVar) != 1) {
@@ -202,16 +203,6 @@ int SendOperationPackage(int socket, u_int32_t opId, u_int64_t messageCounter, u
 
 	int encryptResult = EncryptFinal(messageToSend, aad, ciphertext, ciphertext_len, tag, iv);
 
-    std::cout << "=======================" << std::endl;
-    std::cout << "AAD" << std::endl;
-    BIO_dump_fp (stdout, (const char *)aad, AAD_LENGTH);
-    std::cout << "=======================" << std::endl;
-
-    std::cout << "=======================" << std::endl;
-    std::cout << "COMPLETE" << std::endl;
-    BIO_dump_fp (stdout, (const char *)messageToSend, messageLength);
-    std::cout << "=======================" << std::endl;
-
     delete [] aad;
 	delete [] ciphertext;
 	delete [] tag;
@@ -221,51 +212,17 @@ int SendOperationPackage(int socket, u_int32_t opId, u_int64_t messageCounter, u
         return FAIL;
     }
     int resultSend = SendMessage(socket, messageToSend, messageLength);
+    ++messageCounter;
     delete [] messageToSend;
-    return resultSend == FAIL? FAIL : 1;
-}
-
-int SendDataPackage(int sd, std::string username, std::string fileName, uint32_t numberOfDataBlocks, uint64_t fileLength, unsigned char* key, uint64_t& msgCounter, int echoOn) {
-    
-    FILE* file = fopen(fileName.c_str(), "r");
-    
-    if(!file) {
-        std::cerr<<"Error opening file" << std::endl;
-        return false;
+    if (resultSend == FAIL) {
+        throw std::invalid_argument("Connection with server failed" );
     }
-    unsigned char* data;
-    uint32_t currDataBlockFileLength;
-    for(uint32_t i = 0; i < numberOfDataBlocks; i++){
-        if(numberOfDataBlocks == 1){
-            currDataBlockFileLength = fileLength;
-        }
-        else if(numberOfDataBlocks - 1 == i){
-            currDataBlockFileLength = fileLength%PAYLOAD_BUFFER_MAX_SIZE;
-        }
-        else{
-            currDataBlockFileLength = PAYLOAD_BUFFER_MAX_SIZE;
-        }
-
-        data = new unsigned char[currDataBlockFileLength];
-        fread(data,1,currDataBlockFileLength,file);
-        if (SendOperationPackage(sd, OPERATION_ID_DATA, msgCounter, currDataBlockFileLength, 0, data, key) != 1) {
-            delete[] data;
-            return FAIL;
-        }
-        if (echoOn > 0) {
-            float progressPercentage = (100*i)/numberOfDataBlocks;
-            std::cout << '\r' << "Upload progress at: " << progressPercentage << "                          ";
-            std::cout.flush();
-        }
-
-        delete[] data;
-    }
-    fclose(file);
+    
     return 1;
 }
     
 
-int SendStatusPackage(int sd, unsigned char* key, uint32_t opId, uint64_t messageCounter) {
+int SendStatusPackage(int sd, unsigned char* key, uint32_t opId, uint64_t& messageCounter) {
     // PREPARE AND SEND ASK FOR UPLOAD
 	std::string padding = "0";
 	unsigned char *plaintext = (unsigned char *)padding.c_str();
@@ -276,7 +233,7 @@ int SendStatusPackage(int sd, unsigned char* key, uint32_t opId, uint64_t messag
 
 
 
-int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t& messageCounterRec, uint64_t& ciphertextLengthRec, uint32_t& optVarRec, uint64_t& decryptedTextLength, unsigned char*& decryptedPayload) {
+int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t& messageCounterRec, uint64_t& expectedCounter, uint64_t& ciphertextLengthRec, uint32_t& optVarRec, uint64_t& decryptedTextLength, unsigned char*& decryptedPayload) {
     
 	decryptedTextLength = 0;
 
@@ -288,41 +245,36 @@ int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t
     unsigned char* aad = NULL;
 
     if (ReadMessage(sd, AAD_LENGTH, &aad) != 1) {
-        std::cout << "Error reading AAD" << std::endl;
+        std::cerr << "Error reading AAD" << std::endl;
+        throw std::invalid_argument("Network error");
         return FAIL;
     }
 
-    BIO_dump_fp (stdout, (const char *)aad, AAD_LENGTH);
-
 	if (DecryptInit(aad, opIdRec, messageCounterRec, ciphertextLengthRec, optVarRec) != 1) {
-        std::cout << "Failed decrypt init with received aad" << std::endl;
+        std::cerr << "Failed decrypt init with received aad" << std::endl;
         delete [] aad;
         return FAIL;
     }
+    if (messageCounterRec != expectedCounter) {
+        std::cerr << "Counter out of sync, abort connection..." << std::endl;
+        delete [] aad;
+        throw std::invalid_argument("Counter out of sync");
+    }
+    expectedCounter = expectedCounter +1;
     
     int messageLength = ciphertextLengthRec + IV_LENGTH + TAG_LENGTH;
 	unsigned char* messageReceived = new unsigned char[messageLength];
 
     if (ReadMessage(sd, messageLength, &messageReceived) != 1) {
-        std::cout << "Failed read of ciphertext + tag + iv" << std::endl;
+        std::cerr << "Failed read of ciphertext + tag + iv" << std::endl;
         delete [] aad;
         delete [] messageReceived;
         return FAIL;
     }
 
-    std::cout << "=======================" << std::endl;
-    std::cout << "AAD" << std::endl;
-    BIO_dump_fp (stdout, (const char *)aad, AAD_LENGTH);
-    std::cout << "=======================" << std::endl;
-
     unsigned char* tmp = new unsigned char[AAD_LENGTH + messageLength];
     memmove(tmp, aad, AAD_LENGTH);
     memmove(tmp + AAD_LENGTH, messageReceived, messageLength);
-
-    std::cout << "=======================" << std::endl;
-    std::cout << "COMPLETE" << std::endl;
-    BIO_dump_fp (stdout, (const char *)tmp, messageLength + AAD_LENGTH);
-    std::cout << "=======================" << std::endl;
 
     delete[] tmp;
 
@@ -333,7 +285,7 @@ int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t
 	unsigned char* gotIv = new unsigned char[IV_LENGTH];
 
 	if (DecryptUpdate(messageReceived, gotCiphertext, ciphertextLengthRec, gotTag, gotIv) != 1) {
-        std::cout << "Failed decrypt update" << std::endl;
+        std::cerr << "Failed decrypt update" << std::endl;
         delete [] aad;
         delete [] messageReceived;
         delete [] gotCiphertext;
@@ -344,11 +296,10 @@ int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t
 
     decryptedPayload = new unsigned char[ciphertextLengthRec+1];
 	int resultOfOp = DecryptFinal(gotCiphertext, ciphertextLengthRec, aad, gotTag, gotIv, key, decryptedPayload, &decryptedTextLength);
-    std::cout << decryptedPayload << std::endl;
     if (resultOfOp == FAIL) {
+        std::cerr << "Failed to finalize decrypt" << std::endl;
         delete[] decryptedPayload;
-    }else {
-        decryptedTextLength = resultOfOp;
+        return resultOfOp;
     }
     delete [] aad;
     delete [] messageReceived;
@@ -360,4 +311,81 @@ int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t
 
 }
 
+
+int SendFileInOperationPackage(int sd, std::string fileName, uint32_t numberOfDataBlocks, uint64_t fileLength, unsigned char* key, uint64_t& msgCounter, int echoOn) {
+    
+    FILE* file = fopen(fileName.c_str(), "r");
+    
+    if(!file) {
+        std::cerr<<"Error opening file in read mode" << std::endl;
+        return false;
+    }
+    unsigned char* data;
+    uint32_t currDataBlockFileLength;
+    float progressPercentage = 0;
+    for(uint32_t i = 0; i < numberOfDataBlocks; i++){
+        if(numberOfDataBlocks == 1){
+            currDataBlockFileLength = fileLength;
+        }
+        else if(numberOfDataBlocks - 1 == i){
+            currDataBlockFileLength = fileLength%PAYLOAD_BUFFER_MAX_SIZE;
+        }
+        else{
+            currDataBlockFileLength = PAYLOAD_BUFFER_MAX_SIZE;
+        }
+        data = new unsigned char[currDataBlockFileLength];
+        fread(data,1,currDataBlockFileLength,file);
+        if (SendOperationPackage(sd, OPERATION_ID_DATA, msgCounter, currDataBlockFileLength, 0, data, key) != 1) {
+            delete[] data;
+            return FAIL;
+        }
+        if (echoOn > 0) {
+            progressPercentage = ((0.0f+i)/numberOfDataBlocks)*100;
+            std::cout << '\r' << "Upload progress at: " << progressPercentage << "                          ";
+            std::cout.flush();
+        }
+
+        delete[] data;
+    }
+    std::cout << std::endl;
+    fclose(file);
+    return 1;
+}
+
+
+int ReadFileInOperationPackage(int sd, std::string fileName, uint32_t numberOfDataBlocks, unsigned char* key, uint64_t& msgCounter, int echoOn) {
+
+
+	uint64_t decryptedTextLength = 0;
+
+	uint32_t opIdRec = 0;
+	uint64_t messageCounterRec = 0;
+	uint64_t ciphertextLengthRec = 0;
+	uint32_t optVarRec = 0;
+
+    FILE* file = fopen(fileName.c_str(),"w+");
+    if(!file) {
+        std::cout<<"Errore nell'apertura del file in scrittura\n";
+        return false;
+    }
+    unsigned char* plaintext = NULL;
+    for(uint32_t i = 0; i < numberOfDataBlocks; i++){
+        if(ReadOperationPackage(sd, key, opIdRec, messageCounterRec, msgCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, plaintext) != 1){
+            std::cout<<"Error reading data packet" << std::endl;
+            fclose(file);
+            remove(fileName.c_str());
+            return false;
+        }
+        fwrite(plaintext,1,decryptedTextLength,file);
+        if (echoOn > 0) {
+            float progressPercentage = (100*i)/numberOfDataBlocks;
+            std::cout << '\r' << "Download progress at: " << progressPercentage << "                          ";
+            std::cout.flush();
+        }
+        delete [] plaintext;
+    }
+    fflush(file);
+    fclose(file);
+    return 1;
+}
 #endif

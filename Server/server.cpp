@@ -398,26 +398,33 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint6
 	if (ValidateString(inputFilename, FILENAME_LENGTH) != 1) {
 		std::cout << "Invalid filename, abort connection (modified client)" << std::endl;
 		ClearBufferArea(key, DH_KEY_LENGTH);
-		delete[] filename;
 		abort();
 	}
 	username = RemoveCharacter(username, '\0');
-	std::string completeFilename = username + '/' + inputFilename;
+	std::string storage = "Storage/";
+	std::string completeFilename = storage + username + '/' + inputFilename;
 
 	if (CheckFileExistance(completeFilename) != FAIL) {
-		std::cout << "File already exists" << std::endl;
-		if (SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter) != 1) {
-			std::cout << "Error sending abort message, closing connection .." << std::endl;
-			ClearBufferArea(key, DH_KEY_LENGTH);
-			delete[] filename;
-			abort();
-		}
+		std::cerr << "File already exists" << std::endl;
+		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);
+			
 		return FAIL;
 	}
-	std::cout << "Message counter before ack:" << messageCounter << std::endl;
+
 	if (SendStatusPackage(sd, key, OPERATION_ID_ACK, messageCounter) != 1) {
-		std::cout << "Failed at sending ack package" << std::endl;
+		std::cerr << "Failed at sending ack package" << std::endl;
+		return FAIL;
 	}
+	try {
+		if (ReadFileInOperationPackage(sd, completeFilename, numberOfDataBlocks, key, messageCounter, 0) != 1) {
+			std::cerr << "Something went wrong with upload operation.." << std::endl;
+		}
+	} catch(const std::invalid_argument& e) {
+		remove(completeFilename.c_str());
+		throw;
+	}
+
+	SendStatusPackage(sd, key, OPERATION_ID_DONE, messageCounter);
 
 	return 1;
 
@@ -466,24 +473,17 @@ void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, s
 		ciphertextLengthRec = 0;
 		optVarRec = 0;
 
-		if (ReadOperationPackage(sd, sessionKey, opIdRec, messageCounterRec, ciphertextLengthRec, optVarRec, decryptedPayloadLength, decryptedPayload) != 1) {
-			std::cout << "Error reading client request, abort connection.." << std::endl;
+		if (ReadOperationPackage(sd, sessionKey, opIdRec, messageCounterRec, messageCounter, ciphertextLengthRec, optVarRec, decryptedPayloadLength, decryptedPayload) != 1) {
+			std::cerr << "Error reading client request, abort connection.." << std::endl;
 			delete[] decryptedPayload;
 			break;
 		}
 
 		if (opIdRec > 6 || opIdRec < 1) {
-			std::cout<< "Client sent an invalid operation id, abort connection.. " << std::endl;
+			std::cerr<< "Client sent an invalid operation id, abort connection.. " << std::endl;
 			delete[] decryptedPayload;
 			break;
 		}
-
-		if (messageCounter != messageCounterRec) {
-			std::cout << "Client sent an invalid message counter, abort connection.." << std::endl;
-			delete[] decryptedPayload;
-			break;
-		}
-		messageCounter +=1;
 
 		switch(opIdRec) {
 			case 1:

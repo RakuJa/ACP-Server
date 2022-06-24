@@ -1,8 +1,8 @@
 #include "../lib/header/operation_package.h"
 
 void HandleErrors(std::string errorMessage) {
-    std::cout << errorMessage << std::endl;
-    std::cout<<ERR_error_string(ERR_get_error(),NULL) << std::endl;
+    std::cerr << errorMessage << std::endl;
+    std::cerr<<ERR_error_string(ERR_get_error(),NULL) << std::endl;
     ERR_print_errors_fp(stderr);
     // abort();
 }
@@ -67,7 +67,7 @@ int DecryptFinal(unsigned char *ciphertext, uint64_t ciphertextLength,
                 unsigned char *tag,
                 unsigned char *iv,
                 unsigned char *key,
-                unsigned char *plaintext,
+                unsigned char * plaintext,
                 uint64_t* plaintextLength)
 {
     EVP_CIPHER_CTX *ctx;
@@ -129,7 +129,8 @@ int EncryptFinal(unsigned char*& messageToSend, unsigned char* aad, unsigned cha
     memmove(messageToSend + AAD_LENGTH, ciphertext, ciphertextLength);
     memmove(messageToSend + AAD_LENGTH + ciphertextLength, tag, TAG_LENGTH);
     memmove(messageToSend + AAD_LENGTH + ciphertextLength + TAG_LENGTH, iv, IV_LENGTH);
-        std::cout << "=======================" << std::endl;
+    /*
+    std::cout << "=======================" << std::endl;
     std::cout << "CIPHERTEXT" << std::endl;
     BIO_dump_fp (stdout, (const char *)ciphertext, ciphertextLength);
     std::cout << "=======================" << std::endl;
@@ -141,6 +142,7 @@ int EncryptFinal(unsigned char*& messageToSend, unsigned char* aad, unsigned cha
     std::cout << "IV" << std::endl;
     BIO_dump_fp (stdout, (const char *)iv, IV_LENGTH);
     std::cout << "=======================" << std::endl;
+    */
     return 1;
 }
 
@@ -148,19 +150,6 @@ int DecryptUpdate(unsigned char* msg, unsigned char*& ciphertext, u_int64_t ciph
 	memmove(ciphertext, msg, ciphertextLength);
 	memmove(tag, msg + ciphertextLength, TAG_LENGTH);
 	memmove(iv, msg + ciphertextLength + TAG_LENGTH, IV_LENGTH);
-
-    std::cout << "=======================" << std::endl;
-    std::cout << "CIPHERTEXT" << std::endl;
-    BIO_dump_fp (stdout, (const char *)ciphertext, ciphertextLength);
-    std::cout << "=======================" << std::endl;
-    std::cout << "=======================" << std::endl;
-    std::cout << "TAG" << std::endl;
-    BIO_dump_fp (stdout, (const char *)tag, TAG_LENGTH);
-    std::cout << "=======================" << std::endl;
-    std::cout << "=======================" << std::endl;
-    std::cout << "IV" << std::endl;
-    BIO_dump_fp (stdout, (const char *)iv, IV_LENGTH);
-    std::cout << "=======================" << std::endl;
     return 1;
 }
 

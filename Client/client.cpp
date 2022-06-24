@@ -374,7 +374,6 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 		std::cout << "Something went wrong preparing or sending operation package.. " <<std::endl;
 		return FAIL;
 	}
-	messageCounter += 1;
 
 	unsigned char* outBuf = NULL;
 
@@ -384,49 +383,25 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 	uint64_t messageCounterRec = 0;
 	uint64_t ciphertextLengthRec = 0;
 	uint32_t optVarRec = 0;
-	if (ReadOperationPackage(sd, key, opId, messageCounterRec, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1) {
+	if (ReadOperationPackage(sd, key, opIdRec, messageCounterRec, messageCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1 || opIdRec!=OPERATION_ID_ACK) {
 		std::cout << "Something went wrong receiving server ack" << std::endl;
+		if (outBuf != NULL) delete[] outBuf;
 		return FAIL;
 	}
 	delete[] outBuf;
 
-	if (opIdRec != OPERATION_ID_ACK) {
-		std::cout << "Server refused upload operation" << std::endl;
-		return FAIL;
-	}
-
-	if (messageCounterRec != messageCounter) {
-		std::cout << "Server is out of sync" << std::endl;
-		ClearBufferArea(key, DH_KEY_LENGTH);
-		abort();
-	}
-
-	if (SendDataPackage(sd, username, completeFilename, numberOfDataBlocks, fileSize, key, messageCounter, 1) != 1) {
+	if (SendFileInOperationPackage(sd, completeFilename, numberOfDataBlocks, fileSize, key, messageCounter, 1) != 1) {
 		std::cout << "Upload failed with network error" << std::endl;
-		ClearBufferArea(key, DH_KEY_LENGTH);
-		abort();
+		throw std::invalid_argument("Upload failed");
 	}
 	std::cout << "Upload completed, waiting for server response.." << std::endl;
 
-	decryptedTextLength = 0;
 
-	opIdRec = 0;
-	messageCounterRec = 0;
-	ciphertextLengthRec = 0;
-	optVarRec = 0;
-
-	if (ReadOperationPackage(sd, key, opId, messageCounterRec, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1) {
+	if (ReadOperationPackage(sd, key, opId, messageCounterRec, messageCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1 || opIdRec!=OPERATION_ID_ACK) {
 		std::cout << "Something went wrong receiving server ack" << std::endl;
-		return FAIL;
+		throw std::invalid_argument("Upload failed");
 	}
 	delete[] outBuf;
-
-	// If server did not answer with DONE in may mean that he has refused every other data packet, meaning that its out of sync
-	if (opIdRec != OPERATION_ID_DONE || messageCounterRec != messageCounter) {
-		std::cout << "Server side errors while writing the file" << std::endl;
-		ClearBufferArea(key, DH_KEY_LENGTH);
-		abort();
-	}
 		
 	return 1;
 }
