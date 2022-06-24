@@ -356,7 +356,6 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 	}
 
 	u_int32_t fileSize = GetFileSize(completeFilename);
-	std::cout << fileSize << std::endl;
 
 	if (fileSize == 0) {
 		std::cout << "Invalid file, too big or empty" << std::endl;
@@ -368,7 +367,6 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 	// PREPARE AND SEND ASK FOR UPLOAD
 	unsigned char *plaintext = (unsigned char *)inputFilename.c_str();
 	uint64_t payloadLength = strlen((char*) plaintext); // length = plaintext +1, in questo caso c'è il char di terminazione quindi plaintext
-	std::cout << payloadLength;
 	// Perchè? Perchè - inserisci spiegazione dei blocchi -
 	uint32_t opId = OPERATION_ID_UPLOAD;
 	uint32_t numberOfDataBlocks = GetNumberOfDataBlocks(fileSize);
@@ -390,6 +388,7 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 		std::cout << "Something went wrong receiving server ack" << std::endl;
 		return FAIL;
 	}
+	delete[] outBuf;
 
 	if (opIdRec != OPERATION_ID_ACK) {
 		std::cout << "Server refused upload operation" << std::endl;
@@ -402,8 +401,33 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 		abort();
 	}
 
-	std::cout << "Server wants it!!!" << std::endl;
-	
+	if (SendDataPackage(sd, username, completeFilename, numberOfDataBlocks, fileSize, key, messageCounter, 1) != 1) {
+		std::cout << "Upload failed with network error" << std::endl;
+		ClearBufferArea(key, DH_KEY_LENGTH);
+		abort();
+	}
+	std::cout << "Upload completed, waiting for server response.." << std::endl;
+
+	decryptedTextLength = 0;
+
+	opIdRec = 0;
+	messageCounterRec = 0;
+	ciphertextLengthRec = 0;
+	optVarRec = 0;
+
+	if (ReadOperationPackage(sd, key, opId, messageCounterRec, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1) {
+		std::cout << "Something went wrong receiving server ack" << std::endl;
+		return FAIL;
+	}
+	delete[] outBuf;
+
+	// If server did not answer with DONE in may mean that he has refused every other data packet, meaning that its out of sync
+	if (opIdRec != OPERATION_ID_DONE || messageCounterRec != messageCounter) {
+		std::cout << "Server side errors while writing the file" << std::endl;
+		ClearBufferArea(key, DH_KEY_LENGTH);
+		abort();
+	}
+		
 	return 1;
 }
 

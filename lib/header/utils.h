@@ -18,6 +18,98 @@
 #include "costants.h"
 #include "operation_package.h"
 
+
+
+
+//CANONIZZAZIONE INPUT (USERNAME, FILEPATH, FILENAME ETC)
+
+/*
+Removes all instances of the argument character from the argument string, then returns the modified string
+*/
+std::string RemoveCharacter(std::string input, char character) {
+    input.erase(std::remove(input.begin(), input.end(),character), input.end());
+    return input;
+}
+
+/*
+Checks if the string is less than the maximum and if it does contain only alpha numeric.
+Returns -1 if the string is not valid
+*/
+int ValidateString(std::string stringToAnalyze, int maxStringLength) {
+    if (stringToAnalyze.length() <= USERNAME_MAX_LENGTH && !stringToAnalyze.empty()) {
+        for (std::string::const_iterator s = stringToAnalyze.begin(); s != stringToAnalyze.end(); ++s)
+            if (!isalnum(*s) && *s!='.') return FAIL;
+        
+        return (stringToAnalyze.at(0) != '.') == 0 ? FAIL : 1;
+    }
+    return FAIL;
+}
+
+
+
+std::string ReadFile(const std::string &filename) {
+    std::ifstream file(filename);
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    return content;
+}
+
+
+void PrintListOfOperations() {
+    std::cout << "========================" << std::endl;
+    std::cout << "(0) Help" << std::endl;
+    std::cout << "(1) Upload" << std::endl;
+    std::cout << "(2) Download" << std::endl;
+    std::cout << "(3) Delete" << std::endl;
+    std::cout << "(4) List" << std::endl;
+    std::cout << "(5) Rename" << std::endl;
+    std::cout << "(6) Logout" << std::endl;
+    std::cout << "========================" << std::endl;
+    std::cout << std::endl << "Insert the corresponding number to execute the desired operation:" << std::endl;
+}
+
+void PrettyUpPrintToConsole(std:: string output) {
+    std::cout << "========================" << std::endl;
+    std::cout << output << std::endl;
+    std::cout << "========================" << std::endl;
+}
+
+
+int CheckFileExistance(std::string filename) {
+	FILE* fileToCheck = fopen(filename.c_str(), "r");
+	if (fileToCheck == NULL) {
+		std::cout << "File not found" << std::endl;
+		return FAIL;
+	}
+    fclose(fileToCheck);
+    return 1;
+}
+
+uint32_t GetFileSize(std::string filename) {
+    struct stat stat_buf;
+    return (stat(filename.c_str(), &stat_buf) == 0 && stat_buf.st_size < UINT32_MAX) ? stat_buf.st_size : 0;
+}
+
+
+
+uint32_t GetNumberOfDataBlocks(uint64_t fileSize){
+    return fileSize/PAYLOAD_BUFFER_MAX_SIZE + (fileSize % PAYLOAD_BUFFER_MAX_SIZE != 0);
+}
+
+int ClearBufferArea(unsigned char* buff, int buffLength) {
+    memset(buff, 0, buffLength);
+    delete[] buff;
+    return 1;
+}
+
+
+
+
+
+
+
+
+
+
 /*********************************************************
  *                                                       *
  *  _  _   ___   _____ __   __ ____   ____   _  _        *
@@ -133,6 +225,46 @@ int SendOperationPackage(int socket, u_int32_t opId, u_int64_t messageCounter, u
     return resultSend == FAIL? FAIL : 1;
 }
 
+int SendDataPackage(int sd, std::string username, std::string fileName, uint32_t numberOfDataBlocks, uint64_t fileLength, unsigned char* key, uint64_t& msgCounter, int echoOn) {
+    
+    FILE* file = fopen(fileName.c_str(), "r");
+    
+    if(!file) {
+        std::cerr<<"Error opening file" << std::endl;
+        return false;
+    }
+    unsigned char* data;
+    uint32_t currDataBlockFileLength;
+    for(uint32_t i = 0; i < numberOfDataBlocks; i++){
+        if(numberOfDataBlocks == 1){
+            currDataBlockFileLength = fileLength;
+        }
+        else if(numberOfDataBlocks - 1 == i){
+            currDataBlockFileLength = fileLength%PAYLOAD_BUFFER_MAX_SIZE;
+        }
+        else{
+            currDataBlockFileLength = PAYLOAD_BUFFER_MAX_SIZE;
+        }
+
+        data = new unsigned char[currDataBlockFileLength];
+        fread(data,1,currDataBlockFileLength,file);
+        if (SendOperationPackage(sd, OPERATION_ID_DATA, msgCounter, currDataBlockFileLength, 0, data, key) != 1) {
+            delete[] data;
+            return FAIL;
+        }
+        if (echoOn > 0) {
+            float progressPercentage = (100*i)/numberOfDataBlocks;
+            std::cout << '\r' << "Upload progress at: " << progressPercentage << "                          ";
+            std::cout.flush();
+        }
+
+        delete[] data;
+    }
+    fclose(file);
+    return 1;
+}
+    
+
 int SendStatusPackage(int sd, unsigned char* key, uint32_t opId, uint64_t messageCounter) {
     // PREPARE AND SEND ASK FOR UPLOAD
 	std::string padding = "0";
@@ -226,93 +358,6 @@ int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t
 
     return resultOfOp;
 
-}
-
-
-
-
-
-
-
-
-//CANONIZZAZIONE INPUT (USERNAME, FILEPATH, FILENAME ETC)
-
-/*
-Removes all instances of the argument character from the argument string, then returns the modified string
-*/
-std::string RemoveCharacter(std::string input, char character) {
-    input.erase(std::remove(input.begin(), input.end(),character), input.end());
-    return input;
-}
-
-/*
-Checks if the string is less than the maximum and if it does contain only alpha numeric.
-Returns -1 if the string is not valid
-*/
-int ValidateString(std::string stringToAnalyze, int maxStringLength) {
-    if (stringToAnalyze.length() <= USERNAME_MAX_LENGTH && !stringToAnalyze.empty()) {
-        for (std::string::const_iterator s = stringToAnalyze.begin(); s != stringToAnalyze.end(); ++s)
-            if (!isalnum(*s) && *s!='.') return FAIL;
-        
-        return (stringToAnalyze.at(0) != '.') == 0 ? FAIL : 1;
-    }
-    return FAIL;
-}
-
-
-
-std::string ReadFile(const std::string &filename) {
-    std::ifstream file(filename);
-    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    return content;
-}
-
-
-void PrintListOfOperations() {
-    std::cout << "========================" << std::endl;
-    std::cout << "(0) Help" << std::endl;
-    std::cout << "(1) Upload" << std::endl;
-    std::cout << "(2) Download" << std::endl;
-    std::cout << "(3) Delete" << std::endl;
-    std::cout << "(4) List" << std::endl;
-    std::cout << "(5) Rename" << std::endl;
-    std::cout << "(6) Logout" << std::endl;
-    std::cout << "========================" << std::endl;
-    std::cout << std::endl << "Insert the corresponding number to execute the desired operation:" << std::endl;
-}
-
-void PrettyUpPrintToConsole(std:: string output) {
-    std::cout << "========================" << std::endl;
-    std::cout << output << std::endl;
-    std::cout << "========================" << std::endl;
-}
-
-
-int CheckFileExistance(std::string filename) {
-	FILE* fileToCheck = fopen(filename.c_str(), "r");
-	if (fileToCheck == NULL) {
-		std::cout << "File not found" << std::endl;
-		return FAIL;
-	}
-    fclose(fileToCheck);
-    return 1;
-}
-
-uint32_t GetFileSize(std::string filename) {
-    struct stat stat_buf;
-    return (stat(filename.c_str(), &stat_buf) == 0 && stat_buf.st_size < UINT32_MAX) ? stat_buf.st_size : 0;
-}
-
-
-
-uint32_t GetNumberOfDataBlocks(uint64_t fileSize){
-    return fileSize/PAYLOAD_BUFFER_MAX_SIZE + (fileSize % PAYLOAD_BUFFER_MAX_SIZE != 0);
-}
-
-int ClearBufferArea(unsigned char* buff, int buffLength) {
-    memset(buff, 0, buffLength);
-    delete[] buff;
-    return 1;
 }
 
 #endif
