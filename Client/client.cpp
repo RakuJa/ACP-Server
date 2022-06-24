@@ -402,16 +402,67 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 		throw std::invalid_argument("Upload failed");
 	}
 	delete[] outBuf;
-		
 	return 1;
+
 }
 
 int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
 	return FAIL;
 }
 
-int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
-	return FAIL;
+int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
+	std::cout << "Upload operation selected" << std::endl;
+	std::cout << "The file to upload MUST be in the logged user folder, it cannot be anywhere else in the disk" << std::endl;
+	std::cout << "Input the filename of the file including the extension: " << std::endl;
+
+	std::string inputFilename;
+	std::cin >> inputFilename;
+
+	if (ValidateString(inputFilename, FILENAME_LENGTH) == FAIL) {
+		std::cout << "Input filename is not valid " << std::endl;
+		return FAIL;	
+	}
+
+	username = RemoveCharacter(username, '\0');
+
+	std::string completeFilename = username + '/' + inputFilename;
+
+	FILE* deleteFile = fopen(completeFilename.c_str(), "r");
+	if (deleteFile == NULL) {
+		std::cout << "File not found" << std::endl;
+		return FAIL;
+	}
+
+	fclose(deleteFile);
+
+
+	// PREPARE AND SEND ASK FOR UPLOAD
+	unsigned char *plaintext = (unsigned char *)inputFilename.c_str();
+	uint64_t payloadLength = strlen((char*) plaintext); // length = plaintext +1, in questo caso c'è il char di terminazione quindi plaintext
+	// Perchè? Perchè - inserisci spiegazione dei blocchi -
+	uint32_t opId = OPERATION_ID_DELETE;
+	uint32_t numberOfDataBlocks = 0;
+	if (SendOperationPackage(sd, opId, messageCounter, payloadLength, numberOfDataBlocks, plaintext, key) != 1) {
+		std::cout << "Something went wrong preparing or sending operation package.. " <<std::endl;
+		return FAIL;
+	}
+
+	unsigned char* outBuf = NULL;
+
+	uint64_t decryptedTextLength = 0;
+
+	uint32_t opIdRec = 0;
+	uint64_t messageCounterRec = 0;
+	uint64_t ciphertextLengthRec = 0;
+	uint32_t optVarRec = 0;
+	if (ReadOperationPackage(sd, key, opIdRec, messageCounterRec, messageCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1 || opIdRec!=OPERATION_ID_ACK) {
+		std::cout << "Something went wrong receiving server ack" << std::endl;
+		if (outBuf != NULL) delete[] outBuf;
+		return FAIL;
+	}
+	delete[] outBuf;
+	return 1;
+
 }
 
 int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
@@ -451,7 +502,7 @@ void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string us
 				}
 				break;
 			case 3:
-				if (DeleteOperation(sd, sessionKey, messageCounter) == FAIL) {
+				if (DeleteOperation(sd, sessionKey, messageCounter, username) == FAIL) {
 					PrettyUpPrintToConsole("Delete operation failed");
 				} else {
 					PrettyUpPrintToConsole("Delete operation completed");

@@ -392,7 +392,7 @@ unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 
 
 
-int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint64_t& filenameLength, uint32_t numberOfDataBlocks, unsigned char* filename, std::string username) {
+int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint32_t numberOfDataBlocks, unsigned char* filename, std::string username) {
 
 	char* inputFilename = (char*) filename;
 	if (ValidateString(inputFilename, FILENAME_LENGTH) != 1) {
@@ -434,8 +434,27 @@ int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std
 	return FAIL;
 }
 
-int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
-	return FAIL;
+int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* filename, std::string username) {
+	char* inputFilename = (char*) filename;
+	if (ValidateString(inputFilename, FILENAME_LENGTH) != 1) {
+		std::cout << "Invalid filename, abort connection (modified client)" << std::endl;
+		ClearBufferArea(key, DH_KEY_LENGTH);
+		abort();
+	}
+	username = RemoveCharacter(username, '\0');
+	std::string storage = "Storage/";
+	std::string completeFilename = storage + username + '/' + inputFilename;
+
+	if (CheckFileExistance(completeFilename) == FAIL || remove(completeFilename.c_str()) !=0) {
+		std::cerr << "File does not exists" << std::endl;
+		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);
+		return FAIL;
+	}
+	if (SendStatusPackage(sd, key, OPERATION_ID_ACK, messageCounter) != 1) {
+		std::cerr << "Failed at sending ack package" << std::endl;
+		return FAIL;
+	}
+	return 1;
 }
 
 int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
@@ -447,6 +466,7 @@ int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 }
 
 int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
+	
 	return FAIL;
 }
 
@@ -487,7 +507,7 @@ void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, s
 
 		switch(opIdRec) {
 			case 1:
-				if (UploadOperation(sd, sessionKey, messageCounter, decryptedPayloadLength, optVarRec, decryptedPayload, username) == FAIL) {
+				if (UploadOperation(sd, sessionKey, messageCounter, optVarRec, decryptedPayload, username) == FAIL) {
 					PrettyUpPrintToConsole("Upload operation failed");
 				} else {
 					PrettyUpPrintToConsole("Upload operation completed");
@@ -501,7 +521,7 @@ void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, s
 				}
 				break;
 			case 3:
-				if (DeleteOperation(sd, sessionKey, messageCounter, username) == FAIL) {
+				if (DeleteOperation(sd, sessionKey, messageCounter, decryptedPayload, username) == FAIL) {
 					PrettyUpPrintToConsole("Delete operation failed");
 				} else {
 					PrettyUpPrintToConsole("Delete operation completed");
