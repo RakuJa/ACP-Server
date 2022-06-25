@@ -133,11 +133,11 @@ You should now be ready to develop, if you are using VSCode I'm truly sorry for 
 
 #### Server
 ```bash
-g++ -Wall server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp -o server -lcrypto
+g++ -Wall server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp -o server -lcrypto
 ```
 #### Client
 ```bash
-g++ client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp -o client -lcrypto
+g++ -Wall client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp -o client -lcrypto
 ```
 
 ## Debug & Memory leaks
@@ -146,7 +146,7 @@ For memory leaks detection I used valgrind, install it with:
 ```bash
 sudo apt install valgrind
 ```
-and execute it with:
+and execute it first compiling and then running valgrind:
 ```bash
 g++ -Wall -ggdb3 server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp -o server -lcrypto
 g++ -Wall -ggdb3 client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp -o client -lcrypto

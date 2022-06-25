@@ -18,6 +18,7 @@
 #include "../lib/header/certificate.h"
 #include "../lib/header/key_handle.h"
 #include <sstream>
+#include <dirent.h>
 
 int isUsernameRegistered(const char *sentence, std::string username) {
 
@@ -400,9 +401,8 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint3
 		ClearBufferArea(key, DH_KEY_LENGTH);
 		abort();
 	}
-	username = RemoveCharacter(username, '\0');
-	std::string storage = "Storage/";
-	std::string completeFilename = storage + username + '/' + inputFilename;
+
+	std::string completeFilename = GetUserStoragePath(username, inputFilename);
 
 	if (CheckFileExistance(completeFilename) != FAIL) {
 		std::cerr << "File already exists" << std::endl;
@@ -441,9 +441,7 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsig
 		ClearBufferArea(key, DH_KEY_LENGTH);
 		abort();
 	}
-	username = RemoveCharacter(username, '\0');
-	std::string storage = "Storage/";
-	std::string completeFilename = storage + username + '/' + inputFilename;
+	std::string completeFilename = GetUserStoragePath(username, inputFilename);
 
 	if (CheckFileExistance(completeFilename) == FAIL || remove(completeFilename.c_str()) !=0) {
 		std::cerr << "File does not exists" << std::endl;
@@ -458,7 +456,24 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsig
 }
 
 int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
-	return FAIL;
+	std::string userFolder = GetUserStoragePath(username, NULL);
+	std::cout << userFolder << std::endl;
+	DIR *dir = opendir((userFolder).c_str());
+
+	if (dir == NULL) {
+		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);
+		return FAIL;
+	}
+
+	std::vector<std::string> filesVector = GetFilesInDirectory(dir);
+	closedir(dir);
+
+	
+	std::string fileList = ConcatenateFileNames(filesVector, ",");
+	
+	u_int64_t fileListLength = strlen(fileList.c_str());
+	SendOperationPackage(sd, OPERATION_ID_DATA, messageCounter, fileListLength, 0, (unsigned char *)fileList.c_str(), key);
+	return 1;
 }
 
 int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {

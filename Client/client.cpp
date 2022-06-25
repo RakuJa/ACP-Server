@@ -466,7 +466,40 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 }
 
 int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
-	return FAIL;
+	std::cout << "List operation selected" << std::endl;
+
+	// PREPARE AND SEND ASK FOR UPLOAD
+	unsigned char *plaintext = (unsigned char *)"0";
+	uint64_t payloadLength = strlen((char*) plaintext); // length = plaintext +1, in questo caso c'è il char di terminazione quindi plaintext
+	// Perchè? Perchè - inserisci spiegazione dei blocchi -
+	uint32_t opId = OPERATION_ID_LIST;
+	uint32_t numberOfDataBlocks = 0;
+	if (SendOperationPackage(sd, opId, messageCounter, payloadLength, numberOfDataBlocks, plaintext, key) != 1) {
+		std::cout << "Something went wrong preparing or sending operation package.. " <<std::endl;
+		return FAIL;
+	}
+
+	unsigned char* outBuf = NULL;
+
+	uint64_t decryptedTextLength = 0;
+
+	uint32_t opIdRec = 0;
+	uint64_t messageCounterRec = 0;
+	uint64_t ciphertextLengthRec = 0;
+	uint32_t optVarRec = 0;
+	if (ReadOperationPackage(sd, key, opIdRec, messageCounterRec, messageCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1 || opIdRec != OPERATION_ID_DATA) {
+		std::cout << "Something went wrong server response" << std::endl;
+		if (outBuf != NULL) delete[] outBuf;
+		return FAIL;
+	}
+	std::vector<std::string> fileVector = SplitBufferByCharacter((char*) outBuf, ',');
+	std::cout << "LIST OF FILES SAVED TO SERVER:" << std::endl;
+	for (const auto & entry: fileVector) {
+		if (ValidateString(entry, FILENAME_LENGTH) == 1) std::cout << "|--" << entry << std::endl;
+	}
+	
+	delete[] outBuf;
+	return 1;
 }
 
 int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {

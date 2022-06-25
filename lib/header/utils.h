@@ -18,6 +18,7 @@
 #include "costants.h"
 #include "operation_package.h"
 #include <stdexcept>
+#include <dirent.h>
 
 
 
@@ -78,7 +79,6 @@ void PrettyUpPrintToConsole(std:: string output) {
 int CheckFileExistance(std::string filename) {
 	FILE* fileToCheck = fopen(filename.c_str(), "r");
 	if (fileToCheck == NULL) {
-		std::cout << "File not found" << std::endl;
 		return FAIL;
 	}
     fclose(fileToCheck);
@@ -100,6 +100,59 @@ int ClearBufferArea(unsigned char* buff, int buffLength) {
     memset(buff, 0, buffLength);
     delete[] buff;
     return 1;
+}
+
+
+std::string GetUserStoragePath(std::string username, char* inputFilename) {
+    username = RemoveCharacter(username, '\0');
+    std::string storage = "Storage/";
+    std::string completeFilename = inputFilename!=NULL? storage + username + '/' + inputFilename : storage + username + '/';
+    return completeFilename;
+}
+
+
+std::vector<std::string> GetFilesInDirectory(DIR* directory) {
+    std::vector<std::string> listOfFiles;
+    std::string currEntry;
+    struct dirent *ent; //THX stackoverflow
+    if (directory != NULL) {
+        while((ent = readdir(directory))!=NULL) {
+            currEntry = ent->d_name;
+            if (ValidateString(currEntry, FILENAME_LENGTH) !=FAIL) listOfFiles.push_back(currEntry);
+        }
+    }
+    return listOfFiles;
+}
+
+std::string ConcatenateFileNames(std::vector<std::string> fileVector, std::string separator) {
+    std::string concatResult;
+    //TODO GOD I HATE THIS :PUKE:
+    bool first = 1;
+    std::string cleanEntry;
+    for (const auto & entry: fileVector) {
+        cleanEntry = RemoveCharacter(entry, '\0');
+        if (ValidateString(cleanEntry, FILENAME_LENGTH) == 1) {
+            std::cout << cleanEntry << std::endl;
+            if (first != 1) {
+                concatResult.append(separator);
+            }
+            first = 0;
+            concatResult.append(cleanEntry);
+        }
+    }
+    return concatResult;
+}
+
+std::vector<std::string> SplitBufferByCharacter(char* buffer, char splitSeparator) {
+    std::stringstream ss(buffer);
+    std::string currElement;
+    std::vector<std::string> fileList;
+    if (buffer!=NULL) {
+        while(std::getline(ss, currElement, splitSeparator)) {
+            fileList.push_back(currElement);
+        }
+    }
+    return fileList;
 }
 
 
