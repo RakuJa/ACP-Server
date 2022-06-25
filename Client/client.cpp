@@ -582,7 +582,7 @@ int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 		if (outBuf != NULL) delete[] outBuf;
 		return FAIL;
 	}
-	std::vector<std::string> fileVector = SplitBufferByCharacter((char*) outBuf, ',');
+	std::vector<std::string> fileVector = SplitBufferByCharacter((char*) outBuf, decryptedTextLength, ',');
 	for (const auto & entry: fileVector) {
 		if (ValidateString(entry, FILENAME_LENGTH) == 1) std::cout << "|--" << entry << std::endl;
 	}

@@ -135,11 +135,15 @@ std::string ConcatenateFileNames(std::vector<std::string> fileVector, std::strin
     return concatResult;
 }
 
-std::vector<std::string> SplitBufferByCharacter(char* buffer, char splitSeparator) {
-    std::stringstream ss(buffer);
-    std::string currElement;
+std::vector<std::string> SplitBufferByCharacter(char* buffer, uint64_t bufferLength, char splitSeparator) {
+
     std::vector<std::string> fileList;
     if (buffer!=NULL) {
+        std::string toSplit (buffer, bufferLength);
+
+        std::stringstream ss(toSplit);
+        std::string currElement;
+
         while(std::getline(ss, currElement, splitSeparator)) {
             fileList.push_back(currElement);
         }

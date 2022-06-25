@@ -543,8 +543,8 @@ int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::st
 	return 1;
 }
 
-int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* plaintext, std::string username) {
-	std::vector<std::string> fileVector = SplitBufferByCharacter((char*) plaintext, ',');
+int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* plaintext, uint64_t plaintextLength, std::string username) {
+	std::vector<std::string> fileVector = SplitBufferByCharacter((char*) plaintext, plaintextLength, ',');
 	if (fileVector.size() != 2) {
 		std::cerr << "Invalid list of files size, abort connection (modified client)" << std::endl;
 	}
@@ -678,7 +678,7 @@ void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, s
 					}
 					break;
 				case 5:
-					if (RenameOperation(sd, sessionKey, messageCounter, decryptedPayload, username) == FAIL) {
+					if (RenameOperation(sd, sessionKey, messageCounter, decryptedPayload, ciphertextLengthRec, username) == FAIL) {
 						PrettyUpPrintToConsole("Rename operation failed");
 					} else {
 						PrettyUpPrintToConsole("Rename operation completed");
