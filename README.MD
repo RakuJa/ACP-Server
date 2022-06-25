@@ -39,12 +39,12 @@ Server:
 
 * Users are pre-registered on the server. (so no registration or login function will be present);
 * When the client application starts, Server and Client must authenticate:
-- Server must authenticate with the public key certified by the certification authority;
-- Client must authenticate with the public key, pre-shared with the server.
+    - Server must authenticate with the public key certified by the certification authority;
+    - Client must authenticate with the public key, pre-shared with the server.
 * During authentication a symmetric session key must be negotiated:
-- The negotiation must provide Perfect Forward Secrecy;
-- The entire session must be encrypted and authenticated;
-- The entire session must be protected against replay attacks.
+    - The negotiation must provide Perfect Forward Secrecy;
+    - The entire session must be encrypted and authenticated;
+    - The entire session must be protected against replay attacks.
 
 ### Operations
 
@@ -101,20 +101,20 @@ Now you should have a good looking GUI ready to be used.
 
 * Create a xca db;
 * You can create users private key with xca but it doesn't offer aes-128-cbc keys so I use two commands:
-- ```bash openssl genrsa -aes-128-cbc -out UserPriv.pem 3072 ```
-- ```bash openssl rsa -in UserPriv.pem -outform PEM -pubout -out UserPub.pem ```
+    - ```bash openssl genrsa -aes-128-cbc -out UserPriv.pem 3072 ```
+    - ```bash openssl rsa -in UserPriv.pem -outform PEM -pubout -out UserPub.pem ```
 * Create one private key for the ROOT_CA and one for the Server (Remember to change keysize as needed);
 * Generate CA Root:
-- On Source select SHA 256 as Signature algorithm;
-- Populate Subject accordingly and choose the ROOT_CA private key;
-- On Extensions choose type Certificate Authority;
-- On Key Usage choose Digital Signature, Certificate Sign and CRL Sign;
-- Generate Server Certificate.
+    - On Source select SHA 256 as Signature algorithm;
+    - Populate Subject accordingly and choose the ROOT_CA private key;
+    - On Extensions choose type Certificate Authority;
+    - On Key Usage choose Digital Signature, Certificate Sign and CRL Sign;
+    - Generate Server Certificate.
 * Create a Certificate signing request:
-- On Source select SHA 256 as Signature algorithm;
-- Populate Subject accordingly and choose the Server key;
-- On Extensions choose End Entity;
-- On Key Usage choose Digital Signature, Key Agreement.
+    - On Source select SHA 256 as Signature algorithm;
+    - Populate Subject accordingly and choose the Server key;
+    - On Extensions choose End Entity;
+    - On Key Usage choose Digital Signature, Key Agreement.
 * Sign the Server Certificate using CA Root;
 * Go to Revocation Lists and press "New CRL" (be carefull at the default expiration);
 * Export the CRL as PEM and save it in "/Client/";
