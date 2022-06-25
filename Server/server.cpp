@@ -698,6 +698,7 @@ void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, s
 
 		}
 	}catch (const std::invalid_argument& e) {
+		std::cerr << "User " << username << " disconnected for: " << e.what() << std::endl;
 		if (decryptedPayload!=NULL) delete[] decryptedPayload;
 		return;
 	}

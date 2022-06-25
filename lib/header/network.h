@@ -47,14 +47,19 @@ int SendMessage(int socket, const void* msg, uint32_t length);
 template<class T>
 int ReadMessage(int socket, uint64_t length, T** outBuffer) {
 
-    // READ CONTENT FROM SOCKET
-
-    // u_int64_t result = 0;
     T* msg = new T[length];
     T* tempPointer = msg;
 
     int tmp = 0;
     do {
+        
+        fd_set READY;
+        struct timeval timer = {300, 0};
+        FD_ZERO(&READY);
+        FD_SET(socket, &READY);
+        int ret = select(socket+1, &READY, NULL, NULL, &timer);
+        if (!ret) return FAIL;
+
         tmp = recv(socket, tempPointer, length, 0);
         if (tmp == FAIL) {
             delete[] msg;

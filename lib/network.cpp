@@ -232,7 +232,7 @@ int ReadFileInOperationPackage(int sd, std::string fileName, uint32_t numberOfDa
             std::cerr<<"Error reading data packet" << std::endl;
             fclose(file);
             remove(fileName.c_str());
-            throw std::invalid_argument("Error with filesystem, internal error? Closing connection ..");
+            throw std::invalid_argument("Error while reading data. Closing connection ..");
         }
         fwrite(plaintext,1,decryptedTextLength,file);
         if (echoOn > 0) {

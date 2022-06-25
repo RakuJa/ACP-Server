@@ -583,7 +583,6 @@ int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 		return FAIL;
 	}
 	std::vector<std::string> fileVector = SplitBufferByCharacter((char*) outBuf, ',');
-	std::cout << "LIST OF FILES SAVED TO SERVER:" << std::endl;
 	for (const auto & entry: fileVector) {
 		if (ValidateString(entry, FILENAME_LENGTH) == 1) std::cout << "|--" << entry << std::endl;
 	}
@@ -702,6 +701,7 @@ void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string us
 	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
 	uint32_t operationID = 0;
+	PrintListOfOperations();
 	// TODO UMH A TRY CATCH THIS BIG, SURELY THIS CANNOT BE BAD PROGRAMMING
 	try {
 		while (true) {
@@ -844,8 +844,6 @@ int main(int args_count, char *args[]) {
 
 		std::string handshakeSuccessFile = "login_success_art.txt";
 		std::cout<<ReadFile(handshakeSuccessFile) << std::endl;
-
-		BIO_dump_fp (stdout, (const char *)sessionKey, 16);
 
 		AuthenticatedUserMainLoop(sd, sessionKey, username);
 
