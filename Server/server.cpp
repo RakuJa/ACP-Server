@@ -405,32 +405,112 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint3
 
 	if (CheckFileExistance(completeFilename) != FAIL) {
 		std::cerr << "File already exists" << std::endl;
-		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);
-			
+		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);	
 		return FAIL;
 	}
 
-	if (SendStatusPackage(sd, key, OPERATION_ID_ACK, messageCounter) != 1) {
-		std::cerr << "Failed at sending ack package" << std::endl;
-		return FAIL;
-	}
+	SendStatusPackage(sd, key, OPERATION_ID_ACK, messageCounter);
 	try {
-		if (ReadFileInOperationPackage(sd, completeFilename, numberOfDataBlocks, key, messageCounter, 0) != 1) {
-			std::cerr << "Something went wrong with upload operation.." << std::endl;
-		}
+		ReadFileInOperationPackage(sd, completeFilename, numberOfDataBlocks, key, messageCounter, 0);
 	} catch(const std::invalid_argument& e) {
 		remove(completeFilename.c_str());
 		throw;
 	}
 
 	SendStatusPackage(sd, key, OPERATION_ID_DONE, messageCounter);
-
 	return 1;
 
 }
 
-int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
-	return FAIL;
+int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* filename, std::string username) {
+	char* downloadFilename = (char*) filename;
+	if (ValidateString(downloadFilename, FILENAME_LENGTH) == FAIL) {
+		std::cerr << "Input filename is not valid " << std::endl;
+		throw std::invalid_argument("Modified client, abort connection ");
+		return FAIL;	
+	}
+
+
+	std::string completeFilename = GetUserStoragePath(username, downloadFilename);
+
+	FILE* uploadFile = fopen(completeFilename.c_str(), "r");
+	if (uploadFile == NULL) {
+		std::cerr << "File not found" << std::endl;
+		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);
+		return FAIL;
+	}
+
+	u_int32_t fileSize = GetFileSize(completeFilename);
+
+	if (fileSize == 0) {
+		std::cerr << "Invalid file, too big or empty" << std::endl;
+		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);
+		return FAIL;
+	}
+	fclose(uploadFile);
+
+
+	// PREPARE AND SEND ASK FOR UPLOAD
+	std::string stringSize = std::to_string(fileSize);
+	unsigned char *plaintext = (unsigned char*)stringSize.c_str();
+	uint64_t payloadLength = strlen(stringSize.c_str()); // length = plaintext +1, in questo caso c'è il char di terminazione quindi plaintext
+	// Perchè? Perchè - inserisci spiegazione dei blocchi -
+	uint32_t numberOfDataBlocks = GetNumberOfDataBlocks(fileSize);
+	if (SendOperationPackage(sd, OPERATION_ID_ACK, messageCounter, payloadLength, numberOfDataBlocks, plaintext, key) != 1) {
+		std::cerr << "Something went wrong preparing or sending operation package.. " <<std::endl;
+		return FAIL;
+	}
+
+	unsigned char* outBuf = NULL;
+
+	uint64_t decryptedTextLength = 0;
+
+	uint32_t opIdRec = 0;
+	uint64_t messageCounterRec = 0;
+	uint64_t ciphertextLengthRec = 0;
+	uint32_t optVarRec = 0;
+	if (ReadOperationPackage(sd, key, opIdRec, messageCounterRec, messageCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1) {
+		std::cerr << "Something went wrong receiving client ack" << std::endl;
+		if (outBuf != NULL) delete[] outBuf;
+		return FAIL;
+	}
+	delete[] outBuf;
+
+	if (opIdRec == OPERATION_ID_ABORT) {
+		std::cerr << "Upload operation aborted from client" << std::endl;
+		return FAIL;
+	}
+
+	if (opIdRec!=OPERATION_ID_ACK) {
+		std::cerr << "Invalid op code response" << std::endl;
+		throw std::invalid_argument("Client answered with invalid op code");
+	}
+
+	if (SendFileInOperationPackage(sd, completeFilename, numberOfDataBlocks, fileSize, key, messageCounter, 0) != 1) {
+		std::cout << "Upload failed with network error" << std::endl;
+		throw std::invalid_argument("Upload failed");
+	}
+	std::cout << "file sent to client, waiting for client response.." << std::endl;
+
+
+	if (ReadOperationPackage(sd, key, opIdRec, messageCounterRec, messageCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1) {
+		std::cout << "Something went wrong receiving client ack" << std::endl;
+		throw std::invalid_argument("Upload failed");
+	}
+	delete[] outBuf;
+
+	if (opIdRec == OPERATION_ID_ABORT) {
+		std::cerr << "Download operation aborted from client" << std::endl;
+		return FAIL;
+	}
+
+	if (opIdRec!=OPERATION_ID_DONE) {
+		std::cerr << "Invalid op code response" << std::endl;
+		throw std::invalid_argument("client answered with invalid op code");
+	}
+
+	return 1;
+
 }
 
 int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* filename, std::string username) {
@@ -446,10 +526,7 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsig
 		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);
 		return FAIL;
 	}
-	if (SendStatusPackage(sd, key, OPERATION_ID_ACK, messageCounter) != 1) {
-		std::cerr << "Failed at sending ack package" << std::endl;
-		return FAIL;
-	}
+	SendStatusPackage(sd, key, OPERATION_ID_DONE, messageCounter);
 	return 1;
 }
 
@@ -469,7 +546,9 @@ int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::st
 	std::string fileList = ConcatenateFileNames(filesVector, ",");
 	
 	u_int64_t fileListLength = strlen(fileList.c_str());
-	SendOperationPackage(sd, OPERATION_ID_DATA, messageCounter, fileListLength, 0, (unsigned char *)fileList.c_str(), key);
+	if (SendOperationPackage(sd, OPERATION_ID_DATA, messageCounter, fileListLength, 0, (unsigned char *)fileList.c_str(), key) != 1) {
+		throw std::invalid_argument("Cannot send list to client, internal server error? Closing connection ..");
+	}
 	return 1;
 }
 
@@ -514,7 +593,7 @@ int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsig
 		return FAIL;
 	}
 
-	SendStatusPackage(sd, key, OPERATION_ID_ACK, messageCounter);
+	SendStatusPackage(sd, key, OPERATION_ID_DONE, messageCounter);
 	return 1;
 	
 }
@@ -538,73 +617,76 @@ void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, s
 	uint64_t messageCounterRec = 0;
 	uint64_t ciphertextLengthRec = 0;
 	uint32_t optVarRec = 0;
-	while (true) {
+	try {
+		while (true) {
 
-		decryptedPayload = NULL;
-		decryptedPayloadLength = 0;
-		opIdRec = 0;
-		messageCounterRec = 0;
-		ciphertextLengthRec = 0;
-		optVarRec = 0;
+			decryptedPayload = NULL;
+			decryptedPayloadLength = 0;
+			opIdRec = 0;
+			messageCounterRec = 0;
+			ciphertextLengthRec = 0;
+			optVarRec = 0;
 
-		if (ReadOperationPackage(sd, sessionKey, opIdRec, messageCounterRec, messageCounter, ciphertextLengthRec, optVarRec, decryptedPayloadLength, decryptedPayload) != 1) {
-			std::cerr << "Error reading client request, abort connection.." << std::endl;
+			if (ReadOperationPackage(sd, sessionKey, opIdRec, messageCounterRec, messageCounter, ciphertextLengthRec, optVarRec, decryptedPayloadLength, decryptedPayload) != 1) {
+				std::cerr << "Error reading client request, abort connection.." << std::endl;
+				throw std::invalid_argument("Error reading client request, abort connection..");
+			}
+
+			if (opIdRec > 6 || opIdRec < 1) {
+				std::cerr<< "Client sent an invalid operation id, abort connection.. " << std::endl;
+				throw std::invalid_argument("Client sent an invalid operation id, abort connection..");
+			}
+
+			switch(opIdRec) {
+				case 1:
+					if (UploadOperation(sd, sessionKey, messageCounter, optVarRec, decryptedPayload, username) == FAIL) {
+						PrettyUpPrintToConsole("Upload operation failed");
+					} else {
+						PrettyUpPrintToConsole("Upload operation completed");
+					}
+					break;
+				case 2:
+					if (DownloadOperation(sd, sessionKey, messageCounter, decryptedPayload, username) == FAIL) {
+						PrettyUpPrintToConsole("Download operation failed");
+					} else {
+						PrettyUpPrintToConsole("Download operation completed");
+					}
+					break;
+				case 3:
+					if (DeleteOperation(sd, sessionKey, messageCounter, decryptedPayload, username) == FAIL) {
+						PrettyUpPrintToConsole("Delete operation failed");
+					} else {
+						PrettyUpPrintToConsole("Delete operation completed");
+					}
+					break;
+				case 4:
+					if (ListOperation(sd, sessionKey, messageCounter, username) == FAIL) {
+						PrettyUpPrintToConsole("List operation failed");
+					} else {
+						PrettyUpPrintToConsole("List operation completed");
+					}
+					break;
+				case 5:
+					if (RenameOperation(sd, sessionKey, messageCounter, decryptedPayload, username) == FAIL) {
+						PrettyUpPrintToConsole("Rename operation failed");
+					} else {
+						PrettyUpPrintToConsole("Rename operation completed");
+					}
+					break;
+				case 6:
+					if (LogoutOperation(sd, sessionKey, messageCounter) == FAIL) {
+						PrettyUpPrintToConsole("Logout operation failed");
+					} else {
+						PrettyUpPrintToConsole("Logout operation completed");
+					}
+					break;
+			}
 			delete[] decryptedPayload;
-			break;
-		}
 
-		if (opIdRec > 6 || opIdRec < 1) {
-			std::cerr<< "Client sent an invalid operation id, abort connection.. " << std::endl;
-			delete[] decryptedPayload;
-			break;
 		}
-
-		switch(opIdRec) {
-			case 1:
-				if (UploadOperation(sd, sessionKey, messageCounter, optVarRec, decryptedPayload, username) == FAIL) {
-					PrettyUpPrintToConsole("Upload operation failed");
-				} else {
-					PrettyUpPrintToConsole("Upload operation completed");
-				}
-				break;
-			case 2:
-				if (DownloadOperation(sd, sessionKey, messageCounter, username) == FAIL) {
-					PrettyUpPrintToConsole("Download operation failed");
-				} else {
-					PrettyUpPrintToConsole("Download operation completed");
-				}
-				break;
-			case 3:
-				if (DeleteOperation(sd, sessionKey, messageCounter, decryptedPayload, username) == FAIL) {
-					PrettyUpPrintToConsole("Delete operation failed");
-				} else {
-					PrettyUpPrintToConsole("Delete operation completed");
-				}
-				break;
-			case 4:
-				if (ListOperation(sd, sessionKey, messageCounter, username) == FAIL) {
-					PrettyUpPrintToConsole("List operation failed");
-				} else {
-					PrettyUpPrintToConsole("List operation completed");
-				}
-				break;
-			case 5:
-				if (RenameOperation(sd, sessionKey, messageCounter, decryptedPayload, username) == FAIL) {
-					PrettyUpPrintToConsole("Rename operation failed");
-				} else {
-					PrettyUpPrintToConsole("Rename operation completed");
-				}
-				break;
-			case 6:
-				if (LogoutOperation(sd, sessionKey, messageCounter) == FAIL) {
-					PrettyUpPrintToConsole("Logout operation failed");
-				} else {
-					PrettyUpPrintToConsole("Logout operation completed");
-				}
-				break;
-		}
-		delete[] decryptedPayload;
-
+	}catch (const std::invalid_argument& e) {
+		if (decryptedPayload!=NULL) delete[] decryptedPayload;
+		return;
 	}
 
 }
@@ -632,7 +714,7 @@ void* ConnectionHandler(void* socket) {
 		std::cout << std::string("=====================================================") << std::endl;
 		std:: cout << "User: " << username << " just logged in! :)" << std::endl;
 		std::cout << std::string("=====================================================") << std::endl;
-		BIO_dump_fp (stdout, (const char *)sessionKey, 16);
+		// BIO_dump_fp (stdout, (const char *)sessionKey, 16);
 		AuthenticatedUserServerHandlerMainLoop(sd, sessionKey, username);
 		ClearBufferArea(sessionKey, DH_KEY_LENGTH); 
 	}

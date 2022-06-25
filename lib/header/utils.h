@@ -271,7 +271,7 @@ int SendOperationPackage(int socket, u_int32_t opId, u_int64_t& messageCounter, 
     ++messageCounter;
     delete [] messageToSend;
     if (resultSend == FAIL) {
-        throw std::invalid_argument("Connection with server failed" );
+        throw std::invalid_argument("Connection failed" );
     }
     
     return 1;
@@ -285,7 +285,11 @@ int SendStatusPackage(int sd, unsigned char* key, uint32_t opId, uint64_t& messa
 	unsigned char *plaintext = (unsigned char *)padding.c_str();
 	uint64_t payloadLength = strlen((char*) plaintext); // length = plaintext +1, in questo caso c'è il char di terminazione quindi plaintext
 	// Perchè? Perchè - inserisci spiegazione dei blocchi -
-    return SendOperationPackage(sd, opId, messageCounter, payloadLength, 0, plaintext, key);
+    int sendResult = SendOperationPackage(sd, opId, messageCounter, payloadLength, 0, plaintext, key);
+    if (sendResult != 1) {
+        throw std::invalid_argument("Error sending status package (ABORT/DONE/ACK..), connection cannot be considered stable");
+    }
+    return sendResult;
 
 }
 
@@ -305,7 +309,6 @@ int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t
     if (ReadMessage(sd, AAD_LENGTH, &aad) != 1) {
         std::cerr << "Error reading AAD" << std::endl;
         throw std::invalid_argument("Network error");
-        return FAIL;
     }
 
 	if (DecryptInit(aad, opIdRec, messageCounterRec, ciphertextLengthRec, optVarRec) != 1) {
@@ -424,7 +427,7 @@ int ReadFileInOperationPackage(int sd, std::string fileName, uint32_t numberOfDa
     FILE* file = fopen(fileName.c_str(),"w+");
     if(!file) {
         std::cerr<<"Errore nell'apertura del file in scrittura\n";
-        return FAIL;
+        throw std::invalid_argument("Error with filesystem, internal error? Closing connection ..");
     }
     unsigned char* plaintext = NULL;
     for(uint32_t i = 0; i < numberOfDataBlocks; i++){
@@ -432,11 +435,11 @@ int ReadFileInOperationPackage(int sd, std::string fileName, uint32_t numberOfDa
             std::cerr<<"Error reading data packet" << std::endl;
             fclose(file);
             remove(fileName.c_str());
-            return FAIL;
+            throw std::invalid_argument("Error with filesystem, internal error? Closing connection ..");
         }
         fwrite(plaintext,1,decryptedTextLength,file);
         if (echoOn > 0) {
-            float progressPercentage = (100*i)/numberOfDataBlocks;
+            float progressPercentage = ((0.0f+i)/numberOfDataBlocks)*100;
             std::cout << '\r' << "Download progress at: " << progressPercentage << "                          ";
             std::cout.flush();
         }
