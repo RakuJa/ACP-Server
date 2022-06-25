@@ -356,7 +356,7 @@ unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 	}
 
 	std::cout << std::string("=====================================================") << std::endl;
-	std::cout << std::string("Handshake aborted .. Retry later .. I'm sorry mate :(") << std::endl;
+	std::cout << std::string("1/3 HandShake messages are successful! Keep it up :) ") << std::endl;
 	std::cout << std::string("=====================================================") << std::endl;
 
 	EVP_PKEY* myPrivateKey = NULL;
@@ -397,9 +397,8 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint3
 
 	char* inputFilename = (char*) filename;
 	if (ValidateString(inputFilename, FILENAME_LENGTH) != 1) {
-		std::cout << "Invalid filename, abort connection (modified client)" << std::endl;
-		ClearBufferArea(key, DH_KEY_LENGTH);
-		abort();
+		std::cerr << "Invalid filename, abort connection (modified client)" << std::endl;
+		throw std::invalid_argument("Modified client");
 	}
 
 	std::string completeFilename = GetUserStoragePath(username, inputFilename);
@@ -437,9 +436,8 @@ int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std
 int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* filename, std::string username) {
 	char* inputFilename = (char*) filename;
 	if (ValidateString(inputFilename, FILENAME_LENGTH) != 1) {
-		std::cout << "Invalid filename, abort connection (modified client)" << std::endl;
-		ClearBufferArea(key, DH_KEY_LENGTH);
-		abort();
+		std::cerr << "Invalid filename, abort connection (modified client)" << std::endl;
+		throw std::invalid_argument("Modified client");
 	}
 	std::string completeFilename = GetUserStoragePath(username, inputFilename);
 
@@ -457,7 +455,6 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsig
 
 int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
 	std::string userFolder = GetUserStoragePath(username, NULL);
-	std::cout << userFolder << std::endl;
 	DIR *dir = opendir((userFolder).c_str());
 
 	if (dir == NULL) {
@@ -476,8 +473,50 @@ int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::st
 	return 1;
 }
 
-int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
-	return FAIL;
+int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* plaintext, std::string username) {
+	std::vector<std::string> fileVector = SplitBufferByCharacter((char*) plaintext, ',');
+	if (fileVector.size() != 2) {
+		std::cerr << "Invalid list of files size, abort connection (modified client)" << std::endl;
+	}
+	std::string oldFilename = fileVector.at(0);
+	std::string newFilename = fileVector.at(1);
+	
+	if (ValidateString(oldFilename, FILENAME_LENGTH) != 1) {
+		std::cerr << "Invalid old name, abort connection (modified client)" << std::endl;
+		throw std::invalid_argument("Modified client");
+	}
+
+	if (ValidateString(newFilename, FILENAME_LENGTH) != 1) {
+		std::cerr << "Invalid new name, abort connection (modified client)" << std::endl;
+		throw std::invalid_argument("Modified client");
+	}	
+
+
+	std::string completeFilenameOld = GetUserStoragePath(username, oldFilename.c_str());
+
+	if (CheckFileExistance(completeFilenameOld) == FAIL) {
+		std::cerr << "File to rename does not exists" << std::endl;
+		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);	
+		return FAIL;
+	}
+
+	std::string completeFilenameNew = GetUserStoragePath(username, newFilename.c_str());
+
+	if (CheckFileExistance(completeFilenameNew) != FAIL) {
+		std::cerr << "New file name already exists" << std::endl;
+		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);	
+		return FAIL;
+	}
+
+	if (rename(completeFilenameOld.c_str(), completeFilenameNew.c_str()) != 0) {
+		std::cerr << "Error renaming file " << std::endl;
+		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);	
+		return FAIL;
+	}
+
+	SendStatusPackage(sd, key, OPERATION_ID_ACK, messageCounter);
+	return 1;
+	
 }
 
 int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
@@ -550,7 +589,7 @@ void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, s
 				}
 				break;
 			case 5:
-				if (RenameOperation(sd, sessionKey, messageCounter, username) == FAIL) {
+				if (RenameOperation(sd, sessionKey, messageCounter, decryptedPayload, username) == FAIL) {
 					PrettyUpPrintToConsole("Rename operation failed");
 				} else {
 					PrettyUpPrintToConsole("Rename operation completed");

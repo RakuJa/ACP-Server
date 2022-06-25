@@ -103,7 +103,7 @@ int ClearBufferArea(unsigned char* buff, int buffLength) {
 }
 
 
-std::string GetUserStoragePath(std::string username, char* inputFilename) {
+std::string GetUserStoragePath(std::string username, const char* inputFilename) {
     username = RemoveCharacter(username, '\0');
     std::string storage = "Storage/";
     std::string completeFilename = inputFilename!=NULL? storage + username + '/' + inputFilename : storage + username + '/';
@@ -132,7 +132,6 @@ std::string ConcatenateFileNames(std::vector<std::string> fileVector, std::strin
     for (const auto & entry: fileVector) {
         cleanEntry = RemoveCharacter(entry, '\0');
         if (ValidateString(cleanEntry, FILENAME_LENGTH) == 1) {
-            std::cout << cleanEntry << std::endl;
             if (first != 1) {
                 concatResult.append(separator);
             }
