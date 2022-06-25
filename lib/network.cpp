@@ -197,7 +197,7 @@ int SendFileInOperationPackage(int sd, std::string fileName, uint32_t numberOfDa
             return FAIL;
         }
         if (echoOn > 0) {
-            progressPercentage = ((0.0f+i)/numberOfDataBlocks)*100;
+            progressPercentage = i+1==numberOfDataBlocks ? 100 : ((0.0f+i)/numberOfDataBlocks)*100;
             std::cout << '\r' << "Upload progress at: " << progressPercentage << "                          ";
             std::cout.flush();
         }
@@ -226,6 +226,7 @@ int ReadFileInOperationPackage(int sd, std::string fileName, uint32_t numberOfDa
         throw std::invalid_argument("Error with filesystem, internal error? Closing connection ..");
     }
     unsigned char* plaintext = NULL;
+    float progressPercentage = 0;
     for(uint32_t i = 0; i < numberOfDataBlocks; i++){
         if(ReadOperationPackage(sd, key, opIdRec, messageCounterRec, msgCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, plaintext) != 1){
             std::cerr<<"Error reading data packet" << std::endl;
@@ -235,7 +236,7 @@ int ReadFileInOperationPackage(int sd, std::string fileName, uint32_t numberOfDa
         }
         fwrite(plaintext,1,decryptedTextLength,file);
         if (echoOn > 0) {
-            float progressPercentage = ((0.0f+i)/numberOfDataBlocks)*100;
+            progressPercentage = i+1==numberOfDataBlocks ? 100 : ((0.0f+i)/numberOfDataBlocks)*100;
             std::cout << '\r' << "Download progress at: " << progressPercentage << "                          ";
             std::cout.flush();
         }
