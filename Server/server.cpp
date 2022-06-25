@@ -599,8 +599,28 @@ int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsig
 }
 
 int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
-	
-	return FAIL;
+	SendStatusPackage(sd, key, OPERATION_ID_ACK, messageCounter);
+
+	unsigned char* outBuf = NULL;
+
+	uint64_t decryptedTextLength = 0;
+
+	uint32_t opIdRec = 0;
+	uint64_t messageCounterRec = 0;
+	uint64_t ciphertextLengthRec = 0;
+	uint32_t optVarRec = 0;
+	if (ReadOperationPackage(sd, key, opIdRec, messageCounterRec, messageCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, outBuf) != 1) {
+		std::cerr << "Something went wrong while reading client response" << std::endl;
+		if (outBuf != NULL) delete[] outBuf;
+		return 1;
+	}
+	delete [] outBuf;
+	if (opIdRec!=OPERATION_ID_ACK) {
+		std::cerr << "Invalid op code response" << std::endl;
+		throw std::invalid_argument("Client answered with invalid op code");
+	}
+	return 1;
+
 }
 
 
@@ -678,6 +698,8 @@ void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, s
 						PrettyUpPrintToConsole("Logout operation failed");
 					} else {
 						PrettyUpPrintToConsole("Logout operation completed");
+						if (decryptedPayload!=NULL) delete[] decryptedPayload;
+						return;
 					}
 					break;
 			}
