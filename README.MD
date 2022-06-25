@@ -133,11 +133,11 @@ You should now be ready to develop, if you are using VSCode I'm truly sorry for 
 
 #### Server
 ```bash
-g++ -Wall server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp -o server -lcrypto
+g++ -Wall -ggdb3 server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp ../lib/network.cpp -o server -lcrypto -lpthread
 ```
 #### Client
 ```bash
-g++ -Wall client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp -o client -lcrypto
+g++ -Wall -ggdb3 client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp ../lib/network.cpp -o client -lcrypto -lpthread
 ```
 
 ## Debug & Memory leaks
@@ -148,8 +148,8 @@ sudo apt install valgrind
 ```
 and execute it first compiling and then running valgrind:
 ```bash
-g++ -Wall -ggdb3 server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp -o server -lcrypto
-g++ -Wall -ggdb3 client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp -o client -lcrypto
+g++ -Wall -ggdb3 server.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp ../lib/network.cpp -o server -lcrypto -lpthread
+g++ -Wall -ggdb3 client.cpp ../lib/certificate.cpp ../lib/hash.cpp ../lib/key_handle.cpp ../lib/operation_package.cpp ../lib/network.cpp -o client -lcrypto -lpthread
 
 
 valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt ./server 25567

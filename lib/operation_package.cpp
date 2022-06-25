@@ -4,7 +4,6 @@ void HandleErrors(std::string errorMessage) {
     std::cerr << errorMessage << std::endl;
     std::cerr<<ERR_error_string(ERR_get_error(),NULL) << std::endl;
     ERR_print_errors_fp(stderr);
-    // abort();
 }
 
 
@@ -129,20 +128,6 @@ int EncryptFinal(unsigned char*& messageToSend, unsigned char* aad, unsigned cha
     memmove(messageToSend + AAD_LENGTH, ciphertext, ciphertextLength);
     memmove(messageToSend + AAD_LENGTH + ciphertextLength, tag, TAG_LENGTH);
     memmove(messageToSend + AAD_LENGTH + ciphertextLength + TAG_LENGTH, iv, IV_LENGTH);
-    /*
-    std::cout << "=======================" << std::endl;
-    std::cout << "CIPHERTEXT" << std::endl;
-    BIO_dump_fp (stdout, (const char *)ciphertext, ciphertextLength);
-    std::cout << "=======================" << std::endl;
-    std::cout << "=======================" << std::endl;
-    std::cout << "TAG" << std::endl;
-    BIO_dump_fp (stdout, (const char *)tag, TAG_LENGTH);
-    std::cout << "=======================" << std::endl;
-    std::cout << "=======================" << std::endl;
-    std::cout << "IV" << std::endl;
-    BIO_dump_fp (stdout, (const char *)iv, IV_LENGTH);
-    std::cout << "=======================" << std::endl;
-    */
     return 1;
 }
 

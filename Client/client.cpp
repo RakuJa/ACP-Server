@@ -1,17 +1,13 @@
 // Daniele Giachetto - Foundation of Cybersecurity Project
 
-
-
-#include <sys/socket.h>
-#include <resolv.h>
-#include <netdb.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
 #include "../lib/header/utils.h"
 #include "../lib/header/hash.h"
 #include "../lib/header/certificate.h"
 #include "../lib/header/key_handle.h"
 #include "../lib/header/operation_package.h"
+#include "../lib/header/network.h"
+
+#include <netdb.h>
 
 
 /**
@@ -491,6 +487,7 @@ int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std
 		remove(completeFilename.c_str());
 		throw;
 	}
+	std::cout << std::endl;
 
 	SendStatusPackage(sd, key, OPERATION_ID_DONE, messageCounter);
 	return 1;
@@ -499,7 +496,7 @@ int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std
 
 int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
 	std::cout << "Delete operation selected" << std::endl;
-	std::cout << "The file to delete MUST be in the logged user folder, it cannot be anywhere else in the disk" << std::endl;
+	std::cout << "The file to delete MUST be in the logged user remote folder, it cannot be anywhere else in the disk" << std::endl;
 	std::cout << "Input the filename of the file including the extension: " << std::endl;
 
 	std::string inputFilename;
@@ -537,7 +534,7 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 	delete[] outBuf;
 
 	if (opIdRec == OPERATION_ID_ABORT) {
-		std::cerr << "Download operation aborted from server" << std::endl;
+		std::cerr << "Delete operation aborted from server" << std::endl;
 		return FAIL;
 	}
 
@@ -590,7 +587,7 @@ int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 
 	std::vector<std::string> fileList;
 	std::cout << "Rename operation selected" << std::endl;
-	std::cout << "The file to rename MUST be in the remote logged user folder" << std::endl;
+	std::cout << "The file to rename MUST be in the logged user remote folder" << std::endl;
 	std::cout << "Input the filename of the file to rename including the extension: " << std::endl;
 
 	std::string inputFilename;
@@ -645,7 +642,7 @@ int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 	delete [] outBuf;
 
 	if (opIdRec == OPERATION_ID_ABORT) {
-		std::cerr << "Download operation aborted from server" << std::endl;
+		std::cerr << "Rename operation aborted from server" << std::endl;
 		return FAIL;
 	}
 
@@ -820,7 +817,7 @@ int main(int args_count, char *args[]) {
 
 	if (sessionKey==NULL) {
 		std::cout << std::string("=====================================================") << std::endl;
-		std::cout << std::string("Handshake aborted .. Retry later .. I'm sorry mate :(") << std::endl;
+		std::cout << std::string("Handshake aborted .. Retry later ..") << std::endl;
 		std::cout << std::string("=====================================================") << std::endl;
 		close(sd);
 		return -1;
@@ -839,11 +836,8 @@ int main(int args_count, char *args[]) {
 
 		AuthenticatedUserMainLoop(sd, sessionKey, username);
 
-		ClearBufferArea(sessionKey, DH_KEY_LENGTH);
+		ClearBufferArea(sessionKey, SESSION_KEY_LENGTH);
 	}
-
-
-
 
 	return 0;
 }

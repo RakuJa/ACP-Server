@@ -9,7 +9,7 @@
 #define SERVER_CERT_NAME "ServerCert.pem"
 
 #define NONCE_LEN 16
-#define DH_KEY_LENGTH 16
+#define SESSION_KEY_LENGTH 16
 #define USERNAME_MAX_LENGTH 17
 #define IV_LENGTH 12
 #define TAG_LENGTH 16

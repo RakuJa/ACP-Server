@@ -1,24 +1,16 @@
 // Daniele Giachetto - Foundation of Cybersecurity Project
 
 
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
 #include <pthread.h>
-#include <resolv.h>
-#include "openssl/ssl.h"
-#include "openssl/err.h"
-#include <stdio.h>
-#include <sys/socket.h>
-#include <netdb.h>
+#include <arpa/inet.h>
+
+
 #include "../lib/header/utils.h"
 #include "../lib/header/hash.h"
 #include "../lib/header/certificate.h"
 #include "../lib/header/key_handle.h"
-#include <sstream>
-#include <dirent.h>
+#include "../lib/header/network.h"
+
 
 int isUsernameRegistered(const char *sentence, std::string username) {
 
@@ -79,7 +71,6 @@ unsigned char* FirstHandShakeMessageHandler(int sd, std::string & sName) {
 	*************************************************/
 
 	char* username = NULL;
-
 	if (ReadMessage(sd, USERNAME_MAX_LENGTH, &username) == FAIL) {
 		std::cerr << "Error receiving username" <<std::endl;
 		return NULL;
@@ -729,7 +720,7 @@ void* ConnectionHandler(void* socket) {
 	
 	if (sessionKey==NULL) {
 		std::cout << std::string("=====================================================") << std::endl;
-		std::cout << std::string("Last step of the handshake failed.. I'm sorry mate :(") << std::endl;
+		std::cout << std::string("Handshake aborted") << std::endl;
 		std::cout << std::string("=====================================================") << std::endl;
 	}else {
 		printf("\033c"); // For Linux/Unix and maybe some others but not for Windows before 10 TH2 will reset terminal
@@ -738,7 +729,7 @@ void* ConnectionHandler(void* socket) {
 		std::cout << std::string("=====================================================") << std::endl;
 		// BIO_dump_fp (stdout, (const char *)sessionKey, 16);
 		AuthenticatedUserServerHandlerMainLoop(sd, sessionKey, username);
-		ClearBufferArea(sessionKey, DH_KEY_LENGTH); 
+		ClearBufferArea(sessionKey, SESSION_KEY_LENGTH); 
 	}
 	return NULL;
 	

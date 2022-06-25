@@ -1,11 +1,9 @@
 #ifndef OPERATION_PACKAGE_H
 #define OPERATION_PACKAGE_H
 
-#include <stdint.h>
 #include <iostream>
 #include <openssl/err.h>
 #include <openssl/evp.h>
-#include <stdio.h>
 #include <string.h>
 #include "costants.h"
 #include "hash.h"
