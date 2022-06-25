@@ -62,9 +62,10 @@ void PrintListOfOperations() {
 }
 
 void PrettyUpPrintToConsole(std:: string output) {
-    std::cout << "============================" << std::endl;
+    std::string border = std::string(strlen(output.c_str()), '=');
+    std::cout << border << std::endl;
     std::cout << output << std::endl;
-    std::cout << "============================" << std::endl;
+    std::cout << border << std::endl;
 }
 
 

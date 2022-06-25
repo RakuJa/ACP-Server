@@ -336,6 +336,9 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 	std::string inputFilename;
 	std::cin >> inputFilename;
 
+	std::cin.clear();
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
 	if (ValidateString(inputFilename, FILENAME_LENGTH) == FAIL) {
 		std::cerr << "Input filename is not valid " << std::endl;
 		return FAIL;	
@@ -431,6 +434,9 @@ int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std
 	std::string inputFilename;
 	std::cin >> inputFilename;
 
+	std::cin.clear();
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
 
 	if (ValidateString(inputFilename, FILENAME_LENGTH) == FAIL) {
 		std::cerr << "Input filename is not valid " << std::endl;
@@ -501,6 +507,9 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 
 	std::string inputFilename;
 	std::cin >> inputFilename;
+
+	std::cin.clear();
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
 	if (ValidateString(inputFilename, FILENAME_LENGTH) == FAIL) {
 		std::cerr << "Input filename is not valid " << std::endl;
@@ -604,6 +613,9 @@ int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 	std::string newFilename;
 	std::cin >> newFilename;
 
+	std::cin.clear();
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
 	if (ValidateString(newFilename, FILENAME_LENGTH) == FAIL) {
 		std::cerr << "Input new filename is not valid " << std::endl;
 		return FAIL;	
@@ -686,7 +698,8 @@ int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string username) {
 	// Initialize messageCounter
 	uint64_t messageCounter = 0;
-
+	std::cin.clear();
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
 	uint32_t operationID = 0;
 	// TODO UMH A TRY CATCH THIS BIG, SURELY THIS CANNOT BE BAD PROGRAMMING
