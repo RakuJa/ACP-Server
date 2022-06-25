@@ -508,14 +508,25 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 	std::string inputFilename;
 	std::cin >> inputFilename;
 
-	std::cin.clear();
-	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
 	if (ValidateString(inputFilename, FILENAME_LENGTH) == FAIL) {
 		std::cerr << "Input filename is not valid " << std::endl;
 		return FAIL;	
 	}
+	
+	char answer = 'N';
+	// Get user confirmation
+	do {
+		std::cout << "Are you sure you want to delete this file? (Y/N)" << std::endl;
+		std::cin>>answer;
+	} while (std::cin.fail() || (answer != 'Y' && answer != 'N'));
 
+	std::cin.clear();
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+	if (answer == 'N') {
+		return FAIL;
+	}
 
 	// PREPARE AND SEND ASK FOR DELETE
 	unsigned char *plaintext = (unsigned char *)inputFilename.c_str();
