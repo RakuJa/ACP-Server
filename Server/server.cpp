@@ -526,8 +526,7 @@ int ListOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::st
 	DIR *dir = opendir((userFolder).c_str());
 
 	if (dir == NULL) {
-		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);
-		return FAIL;
+		throw std::invalid_argument("Cannot open user directory, internal server error? Closing connection ..");
 	}
 
 	std::vector<std::string> filesVector = GetFilesInDirectory(dir);
@@ -606,7 +605,7 @@ int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 		return 1;
 	}
 	delete [] outBuf;
-	if (opIdRec!=OPERATION_ID_ACK) {
+	if (opIdRec!=OPERATION_ID_DONE) {
 		std::cerr << "Invalid op code response" << std::endl;
 		throw std::invalid_argument("Client answered with invalid op code");
 	}

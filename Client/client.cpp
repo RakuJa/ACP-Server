@@ -519,7 +519,7 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 	do {
 		std::cout << "Are you sure you want to delete this file? (Y/N)" << std::endl;
 		std::cin>>answer;
-	} while (std::cin.fail() || (answer != 'Y' && answer != 'N'));
+	} while (std::cin.fail() || (answer != 'Y' && answer != 'N') || (answer != 'y' && answer != 'n'));
 
 	std::cin.clear();
 	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -699,7 +699,7 @@ int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 		throw std::invalid_argument("Server answered with invalid op code");
 	}
 	
-	SendStatusPackage(sd, key, OPERATION_ID_ACK, messageCounter);
+	SendStatusPackage(sd, key, OPERATION_ID_DONE, messageCounter);
 	return 1;
 
 }

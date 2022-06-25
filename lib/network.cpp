@@ -228,7 +228,7 @@ int ReadFileInOperationPackage(int sd, std::string fileName, uint32_t numberOfDa
     unsigned char* plaintext = NULL;
     float progressPercentage = 0;
     for(uint32_t i = 0; i < numberOfDataBlocks; i++){
-        if(ReadOperationPackage(sd, key, opIdRec, messageCounterRec, msgCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, plaintext) != 1){
+        if(ReadOperationPackage(sd, key, opIdRec, messageCounterRec, msgCounter, ciphertextLengthRec, optVarRec, decryptedTextLength, plaintext) != 1 || opIdRec!=OPERATION_ID_DATA){
             std::cerr<<"Error reading data packet" << std::endl;
             fclose(file);
             remove(fileName.c_str());
