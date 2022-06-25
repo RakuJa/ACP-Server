@@ -347,7 +347,7 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 
 	username = RemoveCharacter(username, '\0');
 
-	std::string completeFilename = username + '/' + inputFilename;
+	std::string completeFilename = username + "/Storage/" + inputFilename;
 
 	FILE* uploadFile = fopen(completeFilename.c_str(), "r");
 	if (uploadFile == NULL) {
@@ -442,7 +442,7 @@ int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std
 	}
 	
 	username = RemoveCharacter(username, '\0');
-	std::string completeFilename = username + '/' + inputFilename;
+	std::string completeFilename = username + "/Storage/" + inputFilename;
 
 	FILE* downloadFile = fopen(completeFilename.c_str(), "r");
 	if (downloadFile != NULL) {
@@ -498,8 +498,8 @@ int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std
 }
 
 int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::string username) {
-	std::cout << "Upload operation selected" << std::endl;
-	std::cout << "The file to upload MUST be in the logged user folder, it cannot be anywhere else in the disk" << std::endl;
+	std::cout << "Delete operation selected" << std::endl;
+	std::cout << "The file to delete MUST be in the logged user folder, it cannot be anywhere else in the disk" << std::endl;
 	std::cout << "Input the filename of the file including the extension: " << std::endl;
 
 	std::string inputFilename;
@@ -509,18 +509,6 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 		std::cerr << "Input filename is not valid " << std::endl;
 		return FAIL;	
 	}
-
-	username = RemoveCharacter(username, '\0');
-
-	std::string completeFilename = username + '/' + inputFilename;
-
-	FILE* deleteFile = fopen(completeFilename.c_str(), "r");
-	if (deleteFile == NULL) {
-		std::cerr << "File not found" << std::endl;
-		return FAIL;
-	}
-
-	fclose(deleteFile);
 
 
 	// PREPARE AND SEND ASK FOR DELETE
