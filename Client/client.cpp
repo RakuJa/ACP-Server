@@ -714,6 +714,9 @@ void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string us
 		while (true) {
 			operationID = SelectOperation();
 			switch(operationID) {
+				case 0:
+					PrintListOfOperations();
+					break;
 				case 1:
 					if (UploadOperation(sd, sessionKey, messageCounter, username) == FAIL) {
 						PrettyUpPrintToConsole("Upload operation failed");
