@@ -513,17 +513,20 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 		return FAIL;	
 	}
 	
-	char answer = 'N';
+	std::string answer = "N";
 	// Get user confirmation
 	do {
 		std::cout << "Are you sure you want to delete this file? (Y/N)" << std::endl;
 		std::cin>>answer;
-	} while (std::cin.fail() || (answer != 'Y' && answer != 'N' && answer != 'y' && answer != 'n'));
-
+	} while (std::cin.fail() || (answer.compare("Y")!=0 && answer.compare("N")!=0 && answer.compare("y")!=0 && answer.compare("n")!=0));
 	std::cin.clear();
 	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-	if (answer == 'N') {
+	if (answer.compare("N")==0) {
+		return FAIL;
+	}
+
+	if (answer.compare("Y")!=0) {
 		return FAIL;
 	}
 
@@ -613,7 +616,7 @@ int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 	
 	std::cin.clear();
 	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-	
+
 	if (ValidateString(inputFilename, FILENAME_LENGTH) == FAIL) {
 		std::cerr << "Input old filename is not valid " << std::endl;
 		return FAIL;	
