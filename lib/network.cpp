@@ -120,7 +120,7 @@ int ReadOperationPackage(int sd, unsigned char* key, uint32_t& opIdRec, uint64_t
     expectedCounter = expectedCounter +1;
     
     int messageLength = ciphertextLengthRec + IV_LENGTH + TAG_LENGTH;
-	unsigned char* messageReceived = new unsigned char[messageLength];
+	unsigned char* messageReceived = NULL;
 
     if (ReadMessage(sd, messageLength, &messageReceived) != 1) {
         std::cerr << "Failed read of ciphertext + tag + iv" << std::endl;
