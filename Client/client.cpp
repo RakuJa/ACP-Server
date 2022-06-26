@@ -504,6 +504,9 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 	std::string inputFilename;
 	std::cin >> inputFilename;
 
+	std::cin.clear();
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
 
 	if (ValidateString(inputFilename, FILENAME_LENGTH) == FAIL) {
 		std::cerr << "Input filename is not valid " << std::endl;
@@ -607,7 +610,10 @@ int RenameOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 
 	std::string inputFilename;
 	std::cin >> inputFilename;
-
+	
+	std::cin.clear();
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+	
 	if (ValidateString(inputFilename, FILENAME_LENGTH) == FAIL) {
 		std::cerr << "Input old filename is not valid " << std::endl;
 		return FAIL;	
