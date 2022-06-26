@@ -29,8 +29,8 @@ std::string RemoveCharacter(std::string input, char character) {
 Checks if the string is less than the maximum and if it does contain only alpha numeric.
 Returns -1 if the string is not valid
 */
-int ValidateString(std::string stringToAnalyze, int maxStringLength) {
-    if (stringToAnalyze.length() <= USERNAME_MAX_LENGTH && !stringToAnalyze.empty()) {
+int ValidateString(std::string stringToAnalyze, u_int32_t maxStringLength) {
+    if (stringToAnalyze.length() <= maxStringLength && !stringToAnalyze.empty()) {
         for (std::string::const_iterator s = stringToAnalyze.begin(); s != stringToAnalyze.end(); ++s)
             if (!isalnum(*s) && *s!='.') return FAIL;
         
@@ -111,7 +111,7 @@ std::vector<std::string> GetFilesInDirectory(DIR* directory) {
     if (directory != NULL) {
         while((ent = readdir(directory))!=NULL) {
             currEntry = ent->d_name;
-            if (ValidateString(currEntry, FILENAME_LENGTH) !=FAIL) listOfFiles.push_back(currEntry);
+            if (ValidateString(currEntry, FILENAME_LENGTH) == 1) listOfFiles.push_back(currEntry);
         }
     }
     return listOfFiles;
