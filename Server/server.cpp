@@ -346,21 +346,12 @@ unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 		return NULL;
 	}
 
-	std::cout << std::string("=====================================================") << std::endl;
-	std::cout << std::string("1/3 HandShake messages are successful! Keep it up :) ") << std::endl;
-	std::cout << std::string("=====================================================") << std::endl;
-
 	EVP_PKEY* myPrivateKey = NULL;
 	unsigned char* nonceS = SecondHandShakeMessageHandler(sd, nonceC, &myPrivateKey);
 	delete[] nonceC;
 	if (nonceS == NULL) {
 		return NULL;
 	}
-
-	std::cout << std::string("=====================================================") << std::endl;
-	std::cout << std::string("2/3 HandShake messages are successful! Keep it up :) ") << std::endl;
-	std::cout << std::string("=====================================================") << std::endl;
-
 	
 	unsigned char* key = ThirdHandShakeMessageHandler(sd, nonceS, username, myPrivateKey);
 	delete[] nonceS;
@@ -723,11 +714,10 @@ void* ConnectionHandler(void* socket) {
 		std::cout << std::string("Handshake aborted") << std::endl;
 		std::cout << std::string("=====================================================") << std::endl;
 	}else {
-		printf("\033c"); // For Linux/Unix and maybe some others but not for Windows before 10 TH2 will reset terminal
+		//printf("\033c"); // For Linux/Unix and maybe some others but not for Windows before 10 TH2 will reset terminal
 		std::cout << std::string("=====================================================") << std::endl;
 		std:: cout << "User: " << username << " just logged in! :)" << std::endl;
 		std::cout << std::string("=====================================================") << std::endl;
-		// BIO_dump_fp (stdout, (const char *)sessionKey, 16);
 		AuthenticatedUserServerHandlerMainLoop(sd, sessionKey, username);
 		ClearBufferArea(sessionKey, SESSION_KEY_LENGTH); 
 	}

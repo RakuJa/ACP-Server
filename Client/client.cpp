@@ -25,7 +25,7 @@ unsigned char* FirstHandShakeMessageHandler(int sd, std::string & username) {
 
 	// Get username
 	do {
-		printf("Please insert a valid username (only alphanumeric character and length < %d : \n", USERNAME_MAX_LENGTH);
+		printf("Please insert a valid username (only alphanumeric character and length < %d ) : \n", USERNAME_MAX_LENGTH);
 		std::cin>>username;
 	} while (std::cin.fail() || ValidateString(username, USERNAME_MAX_LENGTH) == FAIL);
 
@@ -291,8 +291,6 @@ unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 	u_int32_t serverDhPublicKeyLength = -1;
 
 	unsigned char* nonceS = SecondHandShakeMessageHandler(sd, &diffieHellPublicKey, serverDhPublicKeyLength, nonceC);
-	std::cout << serverDhPublicKeyLength << std::endl;
-	std::cout << diffieHellPublicKey << std::endl;
 	delete[]nonceC;
 	if (nonceS == NULL) {
 		return NULL;
@@ -322,8 +320,6 @@ int SelectOperation() {
 			std::cerr<<" Error: while elaborating input, a valid input is a positive number!" << std::endl;
 		}
 	}
-
-	if (userInput > 6 || userInput < 0) userInput = 0;
 	return userInput;
 }
 
@@ -519,7 +515,7 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 	do {
 		std::cout << "Are you sure you want to delete this file? (Y/N)" << std::endl;
 		std::cin>>answer;
-	} while (std::cin.fail() || (answer != 'Y' && answer != 'N') || (answer != 'y' && answer != 'n'));
+	} while (std::cin.fail() || (answer != 'Y' && answer != 'N' && answer != 'y' && answer != 'n'));
 
 	std::cin.clear();
 	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -762,6 +758,7 @@ void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string us
 					}
 					break;
 				default:
+					PrettyUpPrintToConsole("Invalid operation requested, here's the list of the ones allowed:");
 					PrintListOfOperations();
 					break;
 			}
