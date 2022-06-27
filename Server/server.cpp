@@ -194,15 +194,17 @@ unsigned char* SecondHandShakeMessageHandler(int sd, unsigned char* nonceC, EVP_
 		std::cerr << "Error sending signature " << std::endl;
 		EVP_PKEY_free(*myPrivateKey);
 		EVP_PKEY_free(serverRSAPrivateKey);
+		delete[] msgSigned;
 		delete[] serverDhPublicKey;
 		return NULL;
 	}
 
+	delete[] msgSigned;
+	EVP_PKEY_free(serverRSAPrivateKey);
 	unsigned char* resultOfSignatureValidation = NULL;
 	if (ReadMessage(sd, sizeof(HANDSHAKE_ERROR), &resultOfSignatureValidation) == FAIL || *resultOfSignatureValidation == *HANDSHAKE_ERROR) {
 		std::cerr << "Signature was not valid for the client" << std::endl;
 		EVP_PKEY_free(*myPrivateKey);
-		EVP_PKEY_free(serverRSAPrivateKey);
 		delete[]resultOfSignatureValidation;
 		delete[] serverDhPublicKey;
 		return NULL;
@@ -241,6 +243,7 @@ unsigned char* ThirdHandShakeMessageHandler(int sd, unsigned char* nonceS, std::
 	uint32_t* clientDhPublicKeyLength = NULL;
 	if (ReadMessage(sd, sizeof(u_int32_t), &clientDhPublicKeyLength) == FAIL) {
 		std::cerr << "DiffieHellman public key length received is invalid" << std::endl;
+		if (clientDhPublicKeyLength!=NULL) delete[] clientDhPublicKeyLength;
 		return NULL;
 	}
 
@@ -249,7 +252,7 @@ unsigned char* ThirdHandShakeMessageHandler(int sd, unsigned char* nonceS, std::
 	int fetchDHResult = ReadMessage(sd, *clientDhPublicKeyLength, &clientDhPublicKey);
 	if (fetchDHResult == FAIL) {
 		std::cerr << "Failure while receiving DiffieHellman public key" << std::endl;
-		delete[] clientDhPublicKeyLength;
+ 		delete[] clientDhPublicKeyLength;
 		return NULL;
 	}
 
@@ -257,9 +260,12 @@ unsigned char* ThirdHandShakeMessageHandler(int sd, unsigned char* nonceS, std::
 	unsigned char* resultOfClientLoadKey = NULL;
 	if (ReadMessage(sd, sizeof(HANDSHAKE_ERROR), &resultOfClientLoadKey) == FAIL || *resultOfClientLoadKey == *HANDSHAKE_ERROR) {
 		std::cerr << "Client failed to load private key" << std::endl;
+		delete[] resultOfClientLoadKey;
 		delete[] clientDhPublicKeyLength;
+		delete[] clientDhPublicKey;
 		return NULL;
 	}
+	delete[] resultOfClientLoadKey;
 
 	// READ SIGNATURE
 
@@ -318,11 +324,10 @@ unsigned char* ThirdHandShakeMessageHandler(int sd, unsigned char* nonceS, std::
 	unsigned char* sessionKey = GetDefaultSessionKeyFromPeerPublicAndMyPrivate(myPrivateKey, clientDhPublicKey, *clientDhPublicKeyLength);
 	if (sessionKey == NULL) {
 		std::cerr << "Error generating session key" << std::endl;
-		EVP_PKEY_free(myPrivateKey);
 		return NULL;
 	}
 
-
+	delete[] clientDhPublicKey;
 	delete[] clientDhPublicKeyLength;
 	return sessionKey;
 
@@ -354,6 +359,7 @@ unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 	}
 	
 	unsigned char* key = ThirdHandShakeMessageHandler(sd, nonceS, username, myPrivateKey);
+	EVP_PKEY_free(myPrivateKey);
 	delete[] nonceS;
 
 	return key;
@@ -724,6 +730,7 @@ void* ConnectionHandler(void* socket) {
 		AuthenticatedUserServerHandlerMainLoop(sd, sessionKey, username);
 		ClearBufferArea(sessionKey, SESSION_KEY_LENGTH); 
 	}
+	close(sd);
 	return NULL;
 	
 }

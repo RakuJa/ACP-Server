@@ -51,16 +51,18 @@ unsigned char* GeneratePreSharedSecret(EVP_PKEY* myPrivateKey, EVP_PKEY* peerPub
  */
 EVP_PKEY* GenerateDiffieHellmanPrivateAndPublicPair() {
     EVP_PKEY* dh_params = EVP_PKEY_new();
-    if (EVP_PKEY_set1_DH(dh_params, DH_get_2048_224()) != 1) return NULL;
+    if (EVP_PKEY_set1_DH(dh_params, DH_get_2048_224()) != 1) {
+        EVP_PKEY_free(dh_params);
+        return NULL;
+    } 
 
     EVP_PKEY_CTX* diffiehell_ctx = EVP_PKEY_CTX_new(dh_params, NULL);
+    EVP_PKEY_free(dh_params);
     if (diffiehell_ctx == NULL) {
-        EVP_PKEY_free(dh_params);
         return NULL;
     }
 
     if (EVP_PKEY_keygen_init(diffiehell_ctx) != 1) {
-        EVP_PKEY_free(dh_params);
         EVP_PKEY_CTX_free(diffiehell_ctx);
         return NULL;
     }
@@ -73,9 +75,14 @@ EVP_PKEY* GenerateDiffieHellmanPrivateAndPublicPair() {
     */
     int resultKeyGen = EVP_PKEY_keygen(diffiehell_ctx, &myPPKey); // & gets pointer to a pointer
     EVP_PKEY_CTX_free(diffiehell_ctx);
-    EVP_PKEY_free(dh_params);
     
-    return resultKeyGen == 1 ? myPPKey : NULL;
+    if (resultKeyGen == 1) {
+        return myPPKey;
+    }
+    if (myPPKey!=NULL) {
+        EVP_PKEY_free(myPPKey);
+    }
+    return NULL;
 }
 
 /**
@@ -96,6 +103,7 @@ unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, uint32_
     FILE* publicKeyPEM = fopen(fileName, "w+");
     if (publicKey == NULL || bufferLength == NULL || publicKeyPEM == NULL || PEM_write_PUBKEY(publicKeyPEM, myPPKey) != 1) {
         std::cerr<<"Error initializing conversion from private and public key pair to pem format" << std::endl;
+        if (publicKey!=NULL) EVP_PKEY_free(publicKey);
         fclose(publicKeyPEM);
         return NULL;
     }
@@ -109,6 +117,7 @@ unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, uint32_
     unsigned char* result = ConvertPublicKeyToCharsBuffer(publicKeyPEM, bufferLength);
 
     if (result != NULL) {
+        if (publicKey!=NULL) EVP_PKEY_free(publicKey);
         publicKey = PEM_read_PUBKEY(publicKeyPEM, NULL, NULL, NULL);
 
         fclose(publicKeyPEM);
@@ -116,6 +125,7 @@ unsigned char* ExtractPublicKey(const char* fileName, EVP_PKEY* myPPKey, uint32_
 
         publicKeyLength = int(*bufferLength);
         delete[] bufferLength;
+        if (publicKey!=NULL) EVP_PKEY_free(publicKey);
         return result;
     }
     return NULL;
