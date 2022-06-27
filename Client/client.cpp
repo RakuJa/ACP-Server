@@ -122,13 +122,16 @@ unsigned char* SecondHandShakeMessageHandler(int sd, unsigned char** serverDhPub
 	u_int32_t* tmpLength = NULL;	
 	if (ReadMessage(sd, sizeof(u_int32_t), &tmpLength) == FAIL) {
 		std::cerr << "DiffieHellman public key length received is invalid" << std::endl;
+		EVP_PKEY_free(serverRSAPubKey);
 		return NULL;
 	}
 	serverDhPublicKeyLength = *tmpLength;
+	delete[] tmpLength;
 
 	// GET A (serverPublicDhKey)
 	if (ReadMessage(sd, serverDhPublicKeyLength, serverDhPublicKey) == FAIL) {
 		std::cerr << "Failure while receiving DiffieHellman public key" << std::endl;
+		EVP_PKEY_free(serverRSAPubKey);
 		return NULL;
 	}
 
@@ -137,6 +140,7 @@ unsigned char* SecondHandShakeMessageHandler(int sd, unsigned char** serverDhPub
 	u_int32_t* serverSignLength = NULL;	
 	if (ReadMessage(sd, sizeof(u_int32_t), &serverSignLength) == FAIL) {
 		std::cerr << "Server signature length received is invalid" << std::endl;
+		EVP_PKEY_free(serverRSAPubKey);
 		return NULL;
 	}
 
@@ -144,6 +148,7 @@ unsigned char* SecondHandShakeMessageHandler(int sd, unsigned char** serverDhPub
 
 	if (ReadMessage(sd, *serverSignLength, &serverSign) == FAIL) {
 		std::cerr << "Failure while receiving signature" << std::endl;
+		EVP_PKEY_free(serverRSAPubKey);
 		return NULL;
 	}
 
