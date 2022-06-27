@@ -596,6 +596,10 @@ int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 		return 1;
 	}
 	delete [] outBuf;
+	if (opIdRec==OPERATION_ID_ABORT) {
+		return FAIL;
+	}
+
 	if (opIdRec!=OPERATION_ID_DONE) {
 		std::cerr << "Invalid op code response" << std::endl;
 		throw std::invalid_argument("Client answered with invalid op code");
@@ -676,7 +680,7 @@ void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, s
 					break;
 				case 6:
 					if (LogoutOperation(sd, sessionKey, messageCounter) == FAIL) {
-						PrettyUpPrintToConsole("Logout operation failed");
+						PrettyUpPrintToConsole("Logout operation aborted");
 					} else {
 						PrettyUpPrintToConsole("Logout operation completed");
 						if (decryptedPayload!=NULL) delete[] decryptedPayload;
@@ -755,7 +759,6 @@ int main(int count, char *strings[])
 	/*******************
 	** STARTUP ART :) **
 	*******************/
-
 	std::string welcomeFile = "start_server_art.txt";
 	std::cout<<ReadFile(welcomeFile) << std::endl;
 

@@ -703,6 +703,21 @@ int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 		std::cerr << "Invalid op code response" << std::endl;
 		throw std::invalid_argument("Server answered with invalid op code");
 	}
+
+
+	std::string answer = "N";
+	// Get user confirmation
+	do {
+		std::cout << "Are you sure you want to logout? (Y/N)" << std::endl;
+		std::cin>>answer;
+	} while (std::cin.fail() || (answer.compare("Y")!=0 && answer.compare("N")!=0 && answer.compare("y")!=0 && answer.compare("n")!=0));
+	std::cin.clear();
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+	if (answer.compare("N")==0 || answer.compare("Y")!=0) {
+		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);
+		return FAIL;
+	}
 	
 	SendStatusPackage(sd, key, OPERATION_ID_DONE, messageCounter);
 	return 1;
@@ -763,7 +778,7 @@ void AuthenticatedUserMainLoop(int sd, unsigned char* sessionKey, std::string us
 					break;
 				case 6:
 					if (LogoutOperation(sd, sessionKey, messageCounter) == FAIL) {
-						PrettyUpPrintToConsole("Logout operation failed");
+						PrettyUpPrintToConsole("Logout operation aborted");
 					} else {
 						PrettyUpPrintToConsole("Logout operation completed");
 						return;
