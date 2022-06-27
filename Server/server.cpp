@@ -314,21 +314,22 @@ unsigned char* ThirdHandShakeMessageHandler(int sd, unsigned char* nonceS, std::
 		return NULL;
 	}
 
+		// Generate Kab and Key
+	
+	unsigned char* sessionKey = GetDefaultSessionKeyFromPeerPublicAndMyPrivate(myPrivateKey, clientDhPublicKey, *clientDhPublicKeyLength);
+	delete[] clientDhPublicKeyLength;
+	if (sessionKey == NULL) {
+		std::cerr << "Error generating session key" << std::endl;
+		SendMessage(sd, HANDSHAKE_ERROR, sizeof(HANDSHAKE_ERROR));
+		return NULL;
+	}
+
+
 	if (SendMessage(sd, HANDSHAKE_ACK, sizeof(HANDSHAKE_ACK)) == FAIL) {
 		std::cerr << "Error sending final ACK" << std::endl;
 		return NULL;
 	}
 
-	// Generate Kab and Key
-	
-	unsigned char* sessionKey = GetDefaultSessionKeyFromPeerPublicAndMyPrivate(myPrivateKey, clientDhPublicKey, *clientDhPublicKeyLength);
-	if (sessionKey == NULL) {
-		std::cerr << "Error generating session key" << std::endl;
-		return NULL;
-	}
-
-	delete[] clientDhPublicKey;
-	delete[] clientDhPublicKeyLength;
 	return sessionKey;
 
 }
