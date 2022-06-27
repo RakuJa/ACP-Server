@@ -375,15 +375,14 @@ unsigned char* AuthenticateAndNegotiateKey(int sd, std::string& username) {
 
 
 
-int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint32_t numberOfDataBlocks, unsigned char* filename, std::string username) {
-
-	char* inputFilename = (char*) filename;
+int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint32_t numberOfDataBlocks, unsigned char* filename, u_int64_t filenameLength, std::string username) {
+	std::string inputFilename = std::string((char*) filename, filenameLength);
 	if (ValidateString(inputFilename, FILENAME_LENGTH) != 1) {
 		std::cerr << "Invalid filename, abort connection (modified client)" << std::endl;
 		throw std::invalid_argument("Modified client");
 	}
 
-	std::string completeFilename = GetUserStoragePath(username, inputFilename);
+	std::string completeFilename = GetUserStoragePath(username, inputFilename.c_str());
 
 	if (CheckFileExistance(completeFilename) != FAIL) {
 		std::cerr << "File already exists" << std::endl;
@@ -404,8 +403,8 @@ int UploadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uint3
 
 }
 
-int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* filename, std::string username) {
-	char* downloadFilename = (char*) filename;
+int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* filename, u_int64_t filenameLength, std::string username) {
+	std::string downloadFilename = std::string((char*) filename, filenameLength);
 	if (ValidateString(downloadFilename, FILENAME_LENGTH) == FAIL) {
 		std::cerr << "Input filename is not valid " << std::endl;
 		throw std::invalid_argument("Modified client, abort connection ");
@@ -413,7 +412,7 @@ int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uns
 	}
 
 
-	std::string completeFilename = GetUserStoragePath(username, downloadFilename);
+	std::string completeFilename = GetUserStoragePath(username, downloadFilename.c_str());
 
 	FILE* uploadFile = fopen(completeFilename.c_str(), "r");
 	if (uploadFile == NULL) {
@@ -495,13 +494,13 @@ int DownloadOperation(int sd, unsigned char* key, u_int64_t& messageCounter, uns
 
 }
 
-int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* filename, std::string username) {
-	char* inputFilename = (char*) filename;
+int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, unsigned char* filename, u_int64_t filenameLength, std::string username) {
+	std::string inputFilename = std::string((char*) filename, filenameLength);
 	if (ValidateString(inputFilename, FILENAME_LENGTH) != 1) {
 		std::cerr << "Invalid filename, abort connection (modified client)" << std::endl;
 		throw std::invalid_argument("Modified client");
 	}
-	std::string completeFilename = GetUserStoragePath(username, inputFilename);
+	std::string completeFilename = GetUserStoragePath(username, inputFilename.c_str());
 
 	if (CheckFileExistance(completeFilename) == FAIL || remove(completeFilename.c_str()) !=0) {
 		std::cerr << "File does not exists" << std::endl;
@@ -644,21 +643,21 @@ void AuthenticatedUserServerHandlerMainLoop(int sd, unsigned char* sessionKey, s
 
 			switch(opIdRec) {
 				case 1:
-					if (UploadOperation(sd, sessionKey, messageCounter, optVarRec, decryptedPayload, username) == FAIL) {
+					if (UploadOperation(sd, sessionKey, messageCounter, optVarRec, decryptedPayload, decryptedPayloadLength, username) == FAIL) {
 						PrettyUpPrintToConsole("Upload operation failed");
 					} else {
 						PrettyUpPrintToConsole("Upload operation completed");
 					}
 					break;
 				case 2:
-					if (DownloadOperation(sd, sessionKey, messageCounter, decryptedPayload, username) == FAIL) {
+					if (DownloadOperation(sd, sessionKey, messageCounter, decryptedPayload, decryptedPayloadLength, username) == FAIL) {
 						PrettyUpPrintToConsole("Download operation failed");
 					} else {
 						PrettyUpPrintToConsole("Download operation completed");
 					}
 					break;
 				case 3:
-					if (DeleteOperation(sd, sessionKey, messageCounter, decryptedPayload, username) == FAIL) {
+					if (DeleteOperation(sd, sessionKey, messageCounter, decryptedPayload, decryptedPayloadLength, username) == FAIL) {
 						PrettyUpPrintToConsole("Delete operation failed");
 					} else {
 						PrettyUpPrintToConsole("Delete operation completed");
