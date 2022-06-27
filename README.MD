@@ -8,7 +8,7 @@ TCP secure server for Applied Cryptography course at UniPI 2021/2022.
 
 [![Contributors][contributors-badge]][contributors]
 [![Activity][activity-badge]][activity]
-[![License][license-badge]](COPYING)
+[![License][license-badge]](README)
 
 </div>
 
