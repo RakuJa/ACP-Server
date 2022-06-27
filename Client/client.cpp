@@ -522,11 +522,7 @@ int DeleteOperation(int sd, unsigned char* key, u_int64_t& messageCounter, std::
 	std::cin.clear();
 	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-	if (answer.compare("N")==0) {
-		return FAIL;
-	}
-
-	if (answer.compare("Y")!=0) {
+	if (answer.compare("N")==0 || answer.compare("n") == 0) {
 		return FAIL;
 	}
 
@@ -714,7 +710,7 @@ int LogoutOperation(int sd, unsigned char* key, u_int64_t& messageCounter) {
 	std::cin.clear();
 	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-	if (answer.compare("N")==0 || answer.compare("Y")!=0) {
+	if (answer.compare("N")==0 || answer.compare("n") == 0) {
 		SendStatusPackage(sd, key, OPERATION_ID_ABORT, messageCounter);
 		return FAIL;
 	}
